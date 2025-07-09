@@ -37,7 +37,9 @@ FangXieZhiLian/
 │   ├── gemini_image_peak_analysis.py  # 图片峰值分析工具
 │   ├── gemini_image_peak_analysis.bat # 图片峰值分析批处理脚本
 │   ├── capture_click_chart.py         # 图表截图工具
-│   └── download_videos.py             # 视频下载工具
+│   ├── download_videos.py             # 视频下载工具
+│   ├── filter_high_cost_materials.py  # 素材高消耗筛选工具
+│   └── production_deployment_tool.py  # 素材潜力预测系统
 ├── screenshots/          # 截图保存目录
 │   └── errors/           # 错误截图保存目录
 ├── storage/
@@ -48,6 +50,8 @@ FangXieZhiLian/
 │   ├── 素材数据.xlsx     # 原始素材数据Excel文件
 │   └── 素材ID.json       # 提取的素材ID
 ├── merge_data.bat        # 数据处理自动化工具
+├── run_cost_filter.bat   # 高消耗素材筛选批处理脚本
+├── start_prediction_system.bat  # 素材潜力预测系统启动脚本
 └── .gitignore            # Git忽略文件配置
 ```
 
@@ -68,6 +72,24 @@ merge_data.bat
 3. 执行Excel数据转换
 4. 执行图片峰值分析
 5. 合并素材数据和峰值分析结果
+
+### 素材高消耗筛选
+
+运行根目录下的run_cost_filter.bat批处理脚本，筛选整体消耗大于阈值的素材：
+
+```
+cd FangXieZhiLian
+run_cost_filter.bat
+```
+
+### 素材潜力预测系统
+
+运行根目录下的start_prediction_system.bat批处理脚本，启动素材潜力预测系统：
+
+```
+cd FangXieZhiLian
+start_prediction_system.bat
+```
 
 ### 单个视频分析
 

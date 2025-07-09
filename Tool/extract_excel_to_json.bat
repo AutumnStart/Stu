@@ -10,15 +10,17 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-:: 设置脚本和Excel路径
+:: 设置脚本路径
 set SCRIPT_PATH=%~dp0extract_excel_to_json.py
-set DEFAULT_EXCEL_PATH=%~dp0..\data\素材数据.xlsx
 
 :: 创建输出目录
 if not exist "%~dp0..\json\素材数据分析" mkdir "%~dp0..\json\素材数据分析"
 
 echo 正在将Excel数据转换为JSON格式...
-python "%SCRIPT_PATH%" "%DEFAULT_EXCEL_PATH%"
+echo 将自动查找以"素材数据"开头的Excel文件...
+
+:: 直接运行Python脚本，让脚本自动查找素材数据文件
+python "%SCRIPT_PATH%"
 
 if %ERRORLEVEL% NEQ 0 (
     echo 处理过程中出现错误！
@@ -27,4 +29,5 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo 处理完成！
+pause
 exit /b 0 

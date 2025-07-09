@@ -11,6 +11,7 @@ import os
 import sys
 import re
 import codecs
+import glob
 
 # 配置变量
 # 获取脚本所在目录的绝对路径
@@ -81,21 +82,51 @@ COLUMN_MAPPING = {
     '基础消耗': '基础消耗'
 }
 
+def find_material_data_file(data_dir):
+    """
+    在指定目录中查找以"素材数据"开头的Excel文件
+    
+    Args:
+        data_dir (str): 数据目录路径
+    
+    Returns:
+        str: 找到的文件路径，如果没找到则返回None
+    """
+    # 查找所有以"素材数据"开头的Excel文件
+    pattern = os.path.join(data_dir, "素材数据*.xlsx")
+    files = glob.glob(pattern)
+    
+    if files:
+        # 如果找到多个匹配文件，使用最新的一个
+        return max(files, key=os.path.getmtime)
+    return None
+
 def ensure_dir(file_path):
     """确保目录存在"""
     directory = os.path.dirname(file_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-def process_excel_to_json(excel_path=DEFAULT_EXCEL_PATH, output_path=OUTPUT_JSON_PATH):
+def process_excel_to_json(excel_path=None, output_path=OUTPUT_JSON_PATH):
     """
     将Excel文件处理成JSON格式，只保留指定字段
     
     Args:
-        excel_path: Excel文件路径
+        excel_path: Excel文件路径，如果为None则自动查找
         output_path: 输出JSON文件路径
     """
     try:
+        # 如果未指定Excel路径，尝试查找素材数据文件
+        if excel_path is None or not os.path.exists(excel_path):
+            data_dir = os.path.join(ROOT_DIR, "data")
+            found_file = find_material_data_file(data_dir)
+            if found_file:
+                excel_path = found_file
+                print(f"找到素材数据文件: {excel_path}")
+            else:
+                print(f"错误: 未找到素材数据文件")
+                return False
+        
         print(f"开始处理Excel文件: {excel_path}")
         
         # 设置Pandas显示选项，避免中文乱码
@@ -492,16 +523,23 @@ def main():
     if sys.stdout.encoding != 'utf-8':
         sys.stdout.reconfigure(encoding='utf-8')
     
-    # 设置默认路径
-    excel_path = DEFAULT_EXCEL_PATH
-    output_path = OUTPUT_JSON_PATH
-    
     # 处理命令行参数
     if len(sys.argv) < 2:
         print("用法：")
         print("1. 转换Excel为JSON: python extract_excel_to_json.py [excel_path] [output_json_path]")
         print("2. 合并素材和峰值分析: python extract_excel_to_json.py merge [素材数据JSON路径] [峰值分析JSON路径] [输出JSON路径]")
-        return 0
+        
+        # 没有参数时，尝试自动查找素材数据文件并处理
+        data_dir = os.path.join(ROOT_DIR, "data")
+        found_file = find_material_data_file(data_dir)
+        if found_file:
+            print(f"\n找到素材数据文件: {found_file}")
+            print(f"将使用默认输出路径: {OUTPUT_JSON_PATH}")
+            success = process_excel_to_json(found_file, OUTPUT_JSON_PATH)
+            return 0 if success else 1
+        else:
+            print(f"\n未找到素材数据文件，请指定Excel文件路径")
+            return 1
     
     # 检查是否是合并操作
     if sys.argv[1].lower() == 'merge':
@@ -523,10 +561,24 @@ def main():
         return 0 if success else 1
     else:
         # 默认模式：Excel转JSON
-        if len(sys.argv) > 1:
-            excel_path = sys.argv[1]
+        excel_path = sys.argv[1]
+        output_path = OUTPUT_JSON_PATH
         if len(sys.argv) > 2:
             output_path = sys.argv[2]
+        
+        # 如果指定的Excel路径不存在，尝试模糊匹配
+        if not os.path.exists(excel_path):
+            data_dir = os.path.dirname(excel_path)
+            if not data_dir:
+                data_dir = os.path.join(ROOT_DIR, "data")
+            
+            found_file = find_material_data_file(data_dir)
+            if found_file:
+                excel_path = found_file
+                print(f"找到素材数据文件: {excel_path}")
+            else:
+                print(f"错误: 未找到素材数据文件")
+                return 1
         
         print(f"执行Excel转JSON操作:")
         print(f"- Excel路径: {excel_path}")

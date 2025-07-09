@@ -40,7 +40,6 @@ def fix_json_format(text):
         print(f"JSON格式错误，需要修复: {e}")
         pass  # 继续尝试修复
     
-    # 基本清理
     # 1. 修复字符串中的换行符
     def fix_string_newlines(match):
         content = match.group(1)
@@ -83,71 +82,151 @@ def fix_json_format(text):
     if original_text != text:
         print("已添加键值对中缺失的冒号")
     
+    # 3. 修复数组中缺少引号的项
+    # 这种错误通常出现在数组中的某些项缺少开头或结尾的引号
+    # 例如: ["item1", item2, "item3"] 中的item2缺少引号
+    # 或者: ["item1", **item2**, "item3"] 中的**item2**缺少引号
+    original_text = text
+    
+    # 查找所有数组定义
+    array_pattern = r'\[(.*?)\]'
+    
+    def fix_array_items(match):
+        array_content = match.group(1)
+        items = []
+        in_string = False
+        current_item = ""
+        i = 0
+        
+        # 首先尝试分割数组项
+        while i < len(array_content):
+            char = array_content[i]
+            
+            # 处理字符串
+            if char == '"' and (i == 0 or array_content[i-1] != '\\'):
+                in_string = not in_string
+                current_item += char
+            # 处理逗号（分隔符）
+            elif char == ',' and not in_string:
+                items.append(current_item.strip())
+                current_item = ""
+            else:
+                current_item += char
+            
+            i += 1
+        
+        # 添加最后一项
+        if current_item.strip():
+            items.append(current_item.strip())
+        
+        # 检查每一项是否是有效的JSON值
+        fixed_items = []
+        for item in items:
+            item = item.strip()
+            
+            # 如果项不是以"开头并以"结尾，并且不是有效的JSON值(数字、true、false、null、对象、数组)
+            if not (item.startswith('"') and item.endswith('"')) and \
+               not (item.startswith('{') and item.endswith('}')) and \
+               not (item.startswith('[') and item.endswith(']')) and \
+               not item.lower() in ['true', 'false', 'null'] and \
+               not re.match(r'^-?\d+(\.\d+)?$', item):
+                
+                # 特别处理以**开头的Markdown格式文本
+                if item.startswith('**') and '**' in item[2:]:
+                    item = f'"{item}"'
+                    print(f"已修复数组中缺少引号的Markdown格式项: {item}")
+                else:
+                    # 其他情况，假设它是一个字符串，添加引号
+                    item = f'"{item}"'
+                    print(f"已修复数组中缺少引号的项: {item}")
+            
+            fixed_items.append(item)
+        
+        return '[' + ', '.join(fixed_items) + ']'
+    
+    # 应用数组项修复
+    try:
+        # 使用正则表达式查找所有数组并修复
+        text = re.sub(array_pattern, fix_array_items, text, flags=re.DOTALL)
+        if text != original_text:
+            print("已修复数组中缺少引号的项")
+    except Exception as e:
+        print(f"修复数组项时出错: {e}")
+    
+    # 4. 修复括号平衡问题
+    # 使用栈来跟踪括号匹配
+    def fix_brackets(text):
+        print("修复括号平衡问题...")
+        
+        # 初始化栈和位置记录
+        stack = []
+        unmatched_positions = []
+        
+        # 第一遍：找出所有不匹配的括号
+        for i, char in enumerate(text):
+            if char in '{[':
+                # 左括号入栈
+                stack.append((char, i))
+            elif char in '}]':
+                if not stack:
+                    # 栈为空，说明这是一个多余的右括号
+                    matching_char = '{' if char == '}' else '['
+                    unmatched_positions.append((i, 'extra_right', char, matching_char))
+                else:
+                    left_char, left_pos = stack.pop()
+                    # 检查括号类型是否匹配
+                    if (left_char == '{' and char != '}') or (left_char == '[' and char != ']'):
+                        # 类型不匹配，记录错误
+                        correct_right = '}' if left_char == '{' else ']'
+                        unmatched_positions.append((i, 'wrong_type', char, correct_right))
+        
+        # 处理栈中剩余的左括号（没有匹配的右括号）
+        while stack:
+            left_char, left_pos = stack.pop()
+            correct_right = '}' if left_char == '{' else ']'
+            unmatched_positions.append((len(text), 'missing_right', None, correct_right))
+        
+        # 按位置倒序排序，这样修复时不会影响后面的位置
+        unmatched_positions.sort(reverse=True)
+        
+        # 第二遍：修复不匹配的括号
+        fixed = text
+        brackets_fixed = False
+        
+        for pos, error_type, actual_char, correct_char in unmatched_positions:
+            if error_type == 'extra_right':
+                # 多余的右括号，在前面添加对应的左括号
+                fixed = fixed[:pos] + correct_char + fixed[pos:]
+                print(f"在位置 {pos} 添加左括号 '{correct_char}' 以匹配多余的右括号 '{actual_char}'")
+                brackets_fixed = True
+            elif error_type == 'wrong_type':
+                # 错误类型的右括号，替换为正确类型
+                fixed = fixed[:pos] + correct_char + fixed[pos+1:]
+                print(f"在位置 {pos} 将错误的右括号 '{actual_char}' 替换为正确的右括号 '{correct_char}'")
+                brackets_fixed = True
+            elif error_type == 'missing_right':
+                # 缺少右括号，在末尾添加
+                fixed = fixed[:pos] + correct_char + fixed[pos:]
+                print(f"在位置 {pos} (末尾) 添加缺失的右括号 '{correct_char}'")
+                brackets_fixed = True
+        
+        return fixed, brackets_fixed
+    
+    # 应用括号修复
+    fixed_text, brackets_fixed = fix_brackets(text)
+    
+    # 如果修复了括号，使用修复后的文本
+    if brackets_fixed:
+        text = fixed_text
+        print("已修复括号平衡问题")
+    
     # 尝试解析修复后的文本
     try:
         json_obj = json.loads(text)
-        print("完成基本修复后JSON有效")
+        print("JSON修复成功")
         return text
     except json.JSONDecodeError as e:
-        print(f"基本修复后JSON仍然无效: {e}")
-        pass  # 继续尝试更深层次的修复
-    
-    # 3. 尝试修复括号平衡问题
-    lines = text.split('\n')
-    fixed_lines = []
-    brace_count = 0
-    bracket_count = 0
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        
-        # 计算括号数量
-        brace_count += line.count('{') - line.count('}')
-        bracket_count += line.count('[') - line.count(']')
-        
-        fixed_lines.append(line)
-    
-    # 补充缺失的结束括号
-    brackets_added = False
-    while brace_count > 0:
-        fixed_lines.append('}')
-        brace_count -= 1
-        brackets_added = True
-    while bracket_count > 0:
-        fixed_lines.append(']')
-        bracket_count -= 1
-        brackets_added = True
-    
-    # 补充缺失的开始括号
-    if brace_count < 0:
-        # 在开头添加缺失的左花括号
-        for i in range(abs(brace_count)):
-            fixed_lines.insert(0, '{')
-        brackets_added = True
-        brace_count = 0
-    
-    if bracket_count < 0:
-        # 在开头添加缺失的左方括号
-        for i in range(abs(bracket_count)):
-            fixed_lines.insert(0, '[')
-        brackets_added = True
-        bracket_count = 0
-    
-    if brackets_added:
-        print("已补充缺失的括号")
-    
-    text = '\n'.join(fixed_lines)
-    
-    # 4. 尝试解析修复括号后的文本
-    try:
-        json_obj = json.loads(text)
-        print("修复括号后JSON有效")
-        return text
-    except json.JSONDecodeError as e:
-        print(f"修复括号后JSON仍然无效: {e}")
-        pass  # 继续尝试提取有效部分
+        print(f"JSON仍然无效，错误: {e}")
     
     # 5. 最后尝试从文本中提取有效的JSON对象
     json_start = text.find('{')
@@ -167,52 +246,6 @@ def fix_json_format(text):
                         return extracted_json
                     except json.JSONDecodeError:
                         print("提取的JSON部分仍然无效")
-                        pass  # 如果提取的不是有效JSON，继续
-    
-    # 6. 尝试更激进的修复 - 处理严重损坏的JSON
-    if text.find(':') > 0 and ('{' not in text[:10]):
-        try:
-            print("尝试修复严重损坏的JSON")
-            # 添加缺失的引号和花括号
-            fixed_text = '{'
-            for line in text.split('\n'):
-                line = line.strip()
-                if not line or line in ['{', '}', '[', ']']:
-                    continue
-                    
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    key = key.strip()
-                    value = value.strip()
-                    
-                    # 处理键
-                    if not (key.startswith('"') and key.endswith('"')):
-                        key = f'"{key}"'
-                    
-                    # 处理值
-                    if value.endswith(','):
-                        value = value[:-1]
-                    
-                    if value.lower() in ['true', 'false', 'null'] or (value.replace('.', '').replace('-', '').isdigit()):
-                        # 布尔值、null或数字不需要引号
-                        pass
-                    elif not (value.startswith('"') and value.endswith('"')):
-                        value = f'"{value}"'
-                    
-                    fixed_text += f'{key}: {value}, '
-            
-            # 移除最后一个逗号并添加结束括号
-            if fixed_text.endswith(', '):
-                fixed_text = fixed_text[:-2]
-            fixed_text += '}'
-            
-            # 尝试解析
-            json.loads(fixed_text)
-            print("严重损坏的JSON修复成功")
-            return fixed_text
-        except Exception:
-            print("严重损坏的JSON修复失败")
-            pass
     
     # 如果所有尝试都失败，返回原始文本
     print("所有JSON修复尝试都失败")

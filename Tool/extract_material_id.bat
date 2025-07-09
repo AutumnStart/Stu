@@ -29,6 +29,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo 开始提取素材ID...
+echo 将自动查找以"素材数据"开头的Excel文件...
 python "%~dp0\extract_material_id.py"
 
 :end
