@@ -358,7 +358,7 @@ def merge_material_with_peaks(material_json_path, peaks_json_path, output_path):
             if "images" in peaks_info:
                 # 确保images结构符合新格式
                 if isinstance(peaks_info["images"], dict):
-                merged_item["images"] = peaks_info["images"]
+                    merged_item["images"] = peaks_info["images"]
                 else:
                     # 如果旧格式，转换为新格式
                     print(f"转换素材 {material_id} 的峰值数据为新格式")

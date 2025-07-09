@@ -45,49 +45,6 @@ def download_video(page, output_dir):
         except Exception as e:
             logger.error(f"使用选择器提取标题失败: {e}")
             
-            # 备用方案：使用JavaScript提取
-            try:
-                js_get_title = '''
-                (function() {
-                    // 尝试多种可能的选择器
-                    const selectors = [
-                        "div[data-v-6d152e40].title.ellipsis-text-2",
-                        "div.title.ellipsis-text-2",
-                        ".title.ellipsis-text-2",
-                        "div[class*='title'][class*='ellipsis']"
-                    ];
-                    
-                    for (const selector of selectors) {
-                        const element = document.querySelector(selector);
-                        if (element) {
-                            return element.innerText;
-                        }
-                    }
-                    
-                    // 如果以上都失败，尝试查找任何可能是标题的元素
-                    const possibleTitles = Array.from(document.querySelectorAll("div[class*='title'], h1, h2, h3, .ellipsis-text-2"));
-                    if (possibleTitles.length > 0) {
-                        return possibleTitles[0].innerText;
-                    }
-                    
-                    return null;
-                })();
-                '''
-                video_title = page.evaluate(js_get_title)
-                
-                if not video_title:
-                    # 如果仍然无法获取标题，使用当前时间作为标题
-                    import datetime
-                    video_title = f"未知标题_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    logger.warning(f"无法提取视频标题，使用默认标题: {video_title}")
-                else:
-                    logger.info(f"使用JavaScript提取到视频标题: {video_title}")
-            except Exception as e2:
-                logger.error(f"使用JavaScript提取标题也失败: {e2}")
-                # 使用当前时间作为标题
-                import datetime
-                video_title = f"未知标题_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                logger.warning(f"所有提取标题方法都失败，使用默认标题: {video_title}")
         
         # 2. 提取视频源URL
         try:
