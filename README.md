@@ -230,3 +230,20 @@ __pycache__/
 4. 分析结果保存在json目录下的对应子目录中
 5. 确保Playwright已正确安装并配置，用于图表截图功能
 6. 运行merge_data.bat前，确保data目录中有有效的素材数据Excel文件 
+
+## 快速启动
+
+### 启动素材潜力预测系统
+```
+start_prediction_system.bat
+```
+
+### 启动素材分析系统
+```
+run_agent10.bat
+```
+
+### 启动高成本素材筛选工具
+```
+run_cost_filter.bat
+``` 
