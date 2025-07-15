@@ -21,9 +21,9 @@ if %errorlevel% neq 0 (
 )
 
 :: 检查脚本文件是否存在
-if not exist Tool\filter_high_cost_materials.py (
-    echo [错误] 未找到Tool\filter_high_cost_materials.py文件！
-    echo 请确保脚本文件存在于Tool目录中。
+if not exist filter_high_cost_materials.py (
+    echo [错误] 未找到filter_high_cost_materials.py文件！
+    echo 请确保脚本文件与批处理文件在同一目录。
     echo.
     echo 程序将在5秒后自动关闭...
     timeout /t 5 >nul
@@ -59,7 +59,7 @@ echo 正在执行高消耗素材筛选...
 echo.
 
 :: 执行高消耗素材筛选工具
-python Tool\filter_high_cost_materials.py
+python filter_high_cost_materials.py
 
 echo.
 if %errorlevel% NEQ 0 (
@@ -74,6 +74,64 @@ echo ==========================================
 echo           筛选分析完成！                
 echo ==========================================
 echo.
-echo 按任意键退出程序...
-pause >nul
-exit /b 
+echo Next Step:
+echo -----------------------
+echo 1. Upload to Feishu
+echo 2. Exit 
+echo -----------------------
+echo.
+
+set /p user_choice=Enter your choice (1 or 2): 
+
+if "%user_choice%"=="2" (
+    echo.
+    echo Program ended. Thank you!
+    timeout /t 3 > nul
+    exit /b
+) else if "%user_choice%"=="1" (
+    echo.
+    echo ==========================================
+    echo   STARTING FEISHU DATA UPLOAD...
+    echo ==========================================
+    echo.
+    
+    :: 检查是否存在feishu_write.py文件
+    if not exist feishu_write.py (
+        echo [ERROR] feishu_write.py not found!
+        echo Cannot proceed with data upload.
+        echo.
+        pause
+        exit /b
+    )
+    
+    :: 检查是否存在feishu_config.json文件
+    if not exist feishu_config.json (
+        echo [WARNING] feishu_config.json not found!
+        echo Please ensure Feishu configuration is properly set.
+        echo.
+    )
+    
+    echo Uploading data to Feishu...
+    python feishu_write.py
+    
+    if %errorlevel% NEQ 0 (
+        echo.
+        echo [ERROR] Error occurred during Feishu upload!
+        echo.
+        pause
+        exit /b
+    )
+    
+    echo.
+    echo Feishu upload completed
+    echo.
+    echo Exiting in 5 seconds...
+    timeout /t 5 >nul
+    exit /b
+
+) else (
+    echo.
+    echo Invalid choice. Program will exit.
+    timeout /t 3 >nul
+    exit /b
+)
