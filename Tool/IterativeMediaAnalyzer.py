@@ -68,7 +68,7 @@ CARDINAL_NUMBERS = load_cardinal_numbers()
 
 # Gemini 2.0 Flash API密钥（如需更换请在此处修改）
 API_KEY = "AIzaSyDxnQNBD0dtIKtZHpubgv_ZSw7AG_7tYCU"
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
 
 # AI分析提示词模板
 AI_PROMPT_TEMPLATE = '''你是一名短视频素材运营与优化专家。请根据以下素材的关键信息，结合行业基数标准，从如下几个诊断维度给出最优的下一步运营或内容优化指令：
@@ -194,7 +194,6 @@ def filter_high_cost_materials(file_path, cost_min=1000, cost_max=10000):
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(f"AI分析指令 - 生成时间: {timestamp}\n")
             f.write("=" * 60 + "\n\n")
-            
             # 处理每个素材
             for _, row in filtered_df.iterrows():
                 name = row[name_column] if pd.notna(row[name_column]) else "未命名素材"
@@ -232,6 +231,7 @@ def filter_high_cost_materials(file_path, cost_min=1000, cost_max=10000):
                                                  cardinal_click_rate=CARDINAL_NUMBERS["click_rate"],
                                                  cardinal_cvr=CARDINAL_NUMBERS["cvr"],
                                                  cardinal_cpm=CARDINAL_NUMBERS["cpm"])
+                
                 ai_result = call_gemini_ai(prompt)
                 # 从八大人群分析数据中提取主要和次要受众群体信息
                 audience_info = ""
