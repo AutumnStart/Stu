@@ -775,11 +775,11 @@ def main():
             for i, material_id in enumerate(material_ids):
                 material_id_str = str(material_id)
 
-                # 检查结果是否已存在于BYDHG目录
-                bydhg_material_dir = os.path.join(root_dir, 'storage', 'image', 'BYDHG', f"Material_{material_id_str}")
+                # 检查结果是否已存在于screenshots目录
+                material_screenshot_dir = os.path.join(main_screenshot_dir, f"Material_{material_id_str}")
                 
                 # 如果目录存在且至少包含2个图表文件，则跳过
-                if os.path.exists(bydhg_material_dir) and len([name for name in os.listdir(bydhg_material_dir) if name.endswith('.png')]) >= 2:
+                if os.path.exists(material_screenshot_dir) and len([name for name in os.listdir(material_screenshot_dir) if name.endswith('.png')]) >= 2:
                     print(f"结果已存在，跳过素材ID: {material_id_str}")
                     continue
 

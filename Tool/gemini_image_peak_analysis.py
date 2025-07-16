@@ -201,7 +201,7 @@ def main():
     
     # 设置数据目录和图片目录
     data_dir = os.path.join(root_dir, 'data')
-    image_root = os.path.join(root_dir, 'storage', 'image', 'BYDHG')
+    image_root = os.path.join(root_dir, 'screenshots')
     
     # 设置输出目录为素材数据分析目录
     output_dir = os.path.join(root_dir, 'json', '素材数据分析')
