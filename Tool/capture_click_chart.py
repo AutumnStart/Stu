@@ -61,29 +61,7 @@ def search_and_capture_material(page, material_id, output_dir):
             time.sleep(3)
         except Exception as e:
             print(f"搜索素材ID失败: {e}")
-            # 备用方案：使用JavaScript进行输入
-            try:
-                js_search = f'''
-                (function() {{
-                    // 尝试找到搜索框并输入
-                    const searchInput = Array.from(document.querySelectorAll('input')).find(
-                        el => el.placeholder && el.placeholder.includes('输入素材名称或ID')
-                    );
-                    if (searchInput) {{
-                        searchInput.value = '{material_id}';
-                        searchInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        searchInput.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }}));
-                        return true;
-                    }}
-                    return false;
-                }})();
-                '''
-                page.evaluate(js_search)
-                print(f"使用JavaScript搜索素材ID: {material_id}")
-                time.sleep(3)
-            except Exception as e2:
-                print(f"JavaScript搜索也失败: {e2}")
-                return False
+
         
         # 1.5 下载视频
         try:
@@ -115,33 +93,6 @@ def search_and_capture_material(page, material_id, output_dir):
             time.sleep(5)
         except Exception as e:
             print(f"点击分析按钮失败: {e}")
-            # 尝试使用其他方式定位分析按钮
-            try:
-                page.locator("span").filter(has_text="分析").first.click()
-                print("使用备用方式点击分析按钮")
-                time.sleep(5)
-            except Exception as e2:
-                print(f"备用方式点击分析按钮也失败: {e2}")
-                # 尝试使用JavaScript点击
-                try:
-                    js_click_analyze = '''
-                    (function() {
-                        // 尝试找到包含"分析"文本的按钮
-                        const buttons = Array.from(document.querySelectorAll('span, button, div'));
-                        const analyzeBtn = buttons.find(el => el.innerText && el.innerText.includes('分析'));
-                        if (analyzeBtn) {
-                            analyzeBtn.click();
-                            return true;
-                        }
-                        return false;
-                    })();
-                    '''
-                    page.evaluate(js_click_analyze)
-                    print("使用JavaScript点击分析按钮")
-                    time.sleep(5)
-                except Exception as e3:
-                    print(f"所有点击分析按钮方式都失败: {e3}")
-                    return False
         
         # 3. 获取当前时间作为文件名基础
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -189,12 +140,23 @@ def search_and_capture_material(page, material_id, output_dir):
             page.locator("div").filter(has_text=re.compile(r"^人群分析$")).first.click()
             print("成功点击人群分析选项卡")
             time.sleep(3)  # 等待页面切换
-            
             # 截取八大人群分布人数图表
-            capture_population_chart(page, output_dir, f"八大人群分布人数_{timestamp}")
+            capture_population_chart(page, output_dir, f"八大人群分布人数整体展现次数_{timestamp}")
+            # 精确查找 class 为 'ovui-input__prefix' 且包含文本 '展示指标：' 的 div
+            page.locator("div.ovui-input__prefix:has-text('展示指标：')").click()
+            page.locator("div.ovui-cascader-panel__item-label:has-text('整体成交金额')").click()
+            print(1)
+            time.sleep(5)  # 等待页面切换
+            
+            capture_population_chart(page, output_dir, f"八大人群分布人数整体成交金额_{timestamp}")
+            page.locator("div.ovui-input__prefix:has-text('展示指标：')").click()
+            page.locator("div.ovui-cascader-panel__item-label:has-text('整体点击次数')").click()
+            print(2)
+            time.sleep(5)  # 等待页面切换
+            capture_population_chart(page, output_dir, f"八大人群分布人数整体点击次数_{timestamp}")
         except Exception as e:
             print(f"切换到人群分析失败: {e}")
-        
+            
         # 5. 重要：关闭分析模块
         try:
             print("\\n===== 关闭分析模块 =====")
@@ -212,60 +174,7 @@ def search_and_capture_material(page, material_id, output_dir):
                 time.sleep(3)
             except Exception as e2:
                 print(f"使用备用CSS选择器关闭失败: {e2}")
-                
-                # 备用方案2: 使用 Escape 键
-                try:
-                    page.keyboard.press("Escape")
-                    print("使用Escape键尝试关闭分析模块")
-                    time.sleep(3)
-                except Exception as e3:
-                    print(f"使用Escape键关闭失败: {e3}")
                     
-                    # 备用方案3: 使用JavaScript关闭
-                    try:
-                        js_close = '''
-                        (function() {
-                            // 尝试找到关闭按钮
-                            const closeBtn = document.querySelector('.oc-drawer-close');
-                            if (closeBtn) {
-                                closeBtn.click();
-                                return '找到并点击了.oc-drawer-close';
-                            }
-                            
-                            // 尝试通过类名查找可能的关闭按钮
-                            const possibleCloseButtons = Array.from(
-                                document.querySelectorAll('[class*=close], [class*=cancel], button, span, i')
-                            ).filter(el => {
-                                const classes = el.getAttribute('class') || '';
-                                return classes.includes('close') || classes.includes('cancel');
-                            });
-                            
-                            if (possibleCloseButtons.length > 0) {
-                                possibleCloseButtons[0].click();
-                                return '找到并点击了备用关闭按钮';
-                            }
-                            
-                            // 如果找不到按钮，尝试查找带有关闭或取消文本的元素
-                            const textButtons = Array.from(document.querySelectorAll('*')).filter(el => {
-                                const text = el.innerText || '';
-                                return text.includes('关闭') || text.includes('取消') || text.includes('返回');
-                            });
-                            
-                            if (textButtons.length > 0) {
-                                textButtons[0].click();
-                                return '找到并点击了带有关闭文本的元素';
-                            }
-                            
-                            return '未找到任何可以关闭的元素';
-                        })();
-                        '''
-                        result = page.evaluate(js_close)
-                        print(f"使用JavaScript尝试关闭分析模块: {result}")
-                        time.sleep(3)
-                    except Exception as e4:
-                        print(f"使用JavaScript关闭失败: {e4}")
-                        print("警告: 所有关闭分析模块的方法都失败，可能会影响下一个素材ID的处理")
-            
         print(f"已完成素材ID: {material_id} 的所有图表截取")
         return True
     except Exception as e:
@@ -276,7 +185,6 @@ def search_and_capture_material(page, material_id, output_dir):
 # 专门为整体流失数设计的截图函数，使用精确的前端选择器
 def capture_loss_chart(page, screenshots_dir, file_prefix):
     print("\\n===== 开始截取整体流失数图表 =====")
-    
     try:
         # 使用精确选择器点击整体流失数选项卡
         # 从前端代码中提取的选择器
@@ -291,48 +199,6 @@ def capture_loss_chart(page, screenshots_dir, file_prefix):
         except Exception as e:
             print(f"使用精确选择器点击失败: {e}")
             
-            # 备用方案1: 使用data-e2e属性定位
-            try:
-                data_selector = "div[data-e2e='oc_emptyKey_dataV2/bidding/site-promotion_video_lose_count_for_roi2']"
-                page.locator(data_selector).click(timeout=5000)
-                print("使用data-e2e属性成功点击'整体流失数'选项卡")
-            except Exception as e2:
-                print(f"使用data-e2e属性点击失败: {e2}")
-                
-                # 备用方案2: 直接使用文本内容定位
-                try:
-                    # 使用提供的playwright代码
-                    page.get_by_text("整体流失数").click(timeout=5000)
-                    print("使用文本内容成功点击'整体流失数'选项卡")
-                except Exception as e3:
-                    print(f"使用文本内容点击失败: {e3}")
-                    
-                    # 备用方案3: 使用JavaScript
-                    try:
-                        js_click = '''
-                        (function() {
-                            // 尝试通过data-e2e属性找到元素
-                            let lossBtn = document.querySelector("div[data-e2e='oc_emptyKey_dataV2/bidding/site-promotion_video_lose_count_for_roi2']");
-                            
-                            // 如果找不到，尝试通过文本内容找到元素
-                            if (!lossBtn) {
-                                const elements = Array.from(document.querySelectorAll('div'));
-                                lossBtn = elements.find(el => el.innerText && 
-                                             el.innerText.trim() === '整体流失数');
-                            }
-                            
-                            if (lossBtn) {
-                                lossBtn.click();
-                                return true;
-                            }
-                            return false;
-                        })();
-                        '''
-                        page.evaluate(js_click)
-                        print("使用JavaScript成功点击'整体流失数'选项卡")
-                    except Exception as e4:
-                        print(f"使用JavaScript点击失败: {e4}")
-        
         # 等待图表加载
         time.sleep(3)
         
@@ -349,32 +215,6 @@ def capture_loss_chart(page, screenshots_dir, file_prefix):
         except Exception as e:
             print(f"截取canvas元素失败: {e}")
             
-            # 方法2: 尝试截取任何canvas元素
-            try:
-                canvas_simple = page.locator("canvas").first
-                canvas_simple.screenshot(path=screenshot_path)
-                print(f"成功截取整体流失数canvas: {screenshot_path}")
-                return screenshot_path
-            except Exception as e2:
-                print(f"截取简单canvas失败: {e2}")
-                
-                # 方法3: 截取整个图表区域
-                try:
-                    chart_area = page.locator("div.trend-chart").first
-                    chart_area.screenshot(path=screenshot_path)
-                    print(f"成功截取整体流失数图表区域: {screenshot_path}")
-                    return screenshot_path
-                except Exception as e3:
-                    print(f"截取图表区域失败: {e3}")
-                    
-                    # 最后方案: 截取整个页面
-                    try:
-                        page.screenshot(path=screenshot_path)
-                        print(f"已截取整个页面: {screenshot_path}")
-                        return screenshot_path
-                    except Exception as e4:
-                        print(f"截取整个页面失败: {e4}")
-                        return None
     except Exception as e:
         print(f"截取整体流失数图表时出错: {e}")
         return None
@@ -383,52 +223,15 @@ def capture_loss_chart(page, screenshots_dir, file_prefix):
 def capture_chart(page, chart_name, screenshots_dir, file_prefix, click_position={"x": 19, "y": 293}):
     print(f"\\n===== 开始截取{chart_name}图表 =====")
     
-    # 尝试点击对应的选项卡
+    print(f"尝试点击{chart_name}选项卡...")
+    # 方法1: 精确文本匹配
     try:
-        print(f"尝试点击{chart_name}选项卡...")
-        
-        # 方法1: 精确文本匹配
-        try:
-            # 先尝试使用索引定位
-            page.get_by_text(chart_name).nth(1).click(timeout=5000)
-            print(f"使用索引方式成功点击{chart_name}选项卡")
-        except Exception as e1:
-            print(f"使用索引方式点击{chart_name}选项卡失败: {e1}")
+        # 先尝试使用索引定位
+        page.get_by_text(chart_name).nth(1).click(timeout=5000)
+        print(f"使用索引方式成功点击{chart_name}选项卡")
+    except Exception as e1:
+        print(f"使用索引方式点击{chart_name}选项卡失败: {e1}")
             
-            # 方法2: 使用选择器组合定位
-            try:
-                selector = f"div.ovui-radio-item:has-text('{chart_name}'), div[class*='radio']:has-text('{chart_name}')"
-                page.locator(selector).first.click(timeout=5000)
-                print(f"使用选择器组合成功点击{chart_name}选项卡")
-            except Exception as e2:
-                print(f"使用选择器组合点击{chart_name}选项卡失败: {e2}")
-                
-                # 方法3: 使用JavaScript
-                try:
-                    js_click = f'''
-                    (function() {{
-                        // 尝试找到并点击匹配的元素
-                        const elements = Array.from(document.querySelectorAll('div'));
-                        const target = elements.find(el => el.innerText && el.innerText.includes('{chart_name}') && 
-                            (el.getAttribute('class') && 
-                            (el.getAttribute('class').includes('item') || 
-                             el.getAttribute('class').includes('radio') || 
-                             el.getAttribute('class').includes('tab'))));
-                        
-                        if (target) {{
-                            target.click();
-                            return true;
-                        }}
-                        return false;
-                    }})();
-                    '''
-                    page.evaluate(js_click)
-                    print(f"使用JavaScript成功点击{chart_name}选项卡")
-                except Exception as e3:
-                    print(f"使用JavaScript点击{chart_name}选项卡失败: {e3}")
-    except Exception as e:
-        print(f"所有点击{chart_name}选项卡方式都失败: {e}")
-    
     # 等待图表加载
     time.sleep(3)
     
@@ -449,53 +252,20 @@ def capture_chart(page, chart_name, screenshots_dir, file_prefix, click_position
     time.sleep(3)
     
     # 截取图表
+    print(f"尝试截取{chart_name}图表...")
+    
+    # 方法1: 尝试截取canvas元素
     try:
-        print(f"尝试截取{chart_name}图表...")
-        
-        # 方法1: 尝试截取canvas元素
-        try:
-            # 尝试找到可能是图表的canvas元素
-            chart_path = os.path.join(screenshots_dir, f"{file_prefix}.png")
-            canvas = page.locator("canvas").first
-            canvas.screenshot(path=chart_path)
-            print(f"成功截取{chart_name}图表，保存为: {chart_path}")
-            return chart_path
-        except Exception as e:
-            print(f"截取canvas元素失败: {e}")
-            
-            # 方法2: 尝试截取可能包含图表的区域
-            try:
-                area_selectors = [
-                    "div.trend-chart", 
-                    "div.chart", 
-                    "div.lightcharts-container",
-                    "div.content-analyze",
-                    "div[class*='chart']",
-                    "div[class*='图表']"
-                ]
-                
-                for selector in area_selectors:
-                    try:
-                        area_path = os.path.join(screenshots_dir, f"{file_prefix}_区域.png")
-                        area = page.locator(selector).first
-                        if area:
-                            area.screenshot(path=area_path)
-                            print(f"成功截取{chart_name}图表区域，保存为: {area_path}")
-                            return area_path
-                    except Exception:
-                        continue
-                
-                # 如果上述所有方法都失败，截取整个页面
-                page_path = os.path.join(screenshots_dir, f"{file_prefix}_全页面.png")
-                page.screenshot(path=page_path)
-                print(f"所有区域截图方法失败，已截取整个页面，保存为: {page_path}")
-                return page_path
-            except Exception as e2:
-                print(f"所有截图方法都失败: {e2}")
-                return None
+        # 尝试找到可能是图表的canvas元素
+        chart_path = os.path.join(screenshots_dir, f"{file_prefix}.png")
+        canvas = page.locator("canvas").first
+        canvas.screenshot(path=chart_path)
+        print(f"成功截取{chart_name}图表，保存为: {chart_path}")
+        return chart_path
     except Exception as e:
-        print(f"截取{chart_name}图表时发生异常: {e}")
-        return None
+        print(f"截取canvas元素失败: {e}")
+            
+
 
 # 添加专门用于八大人群分布人数图表截图的函数
 def capture_population_chart(page, screenshots_dir, file_prefix):
@@ -506,47 +276,13 @@ def capture_population_chart(page, screenshots_dir, file_prefix):
         # 尝试点击对应的选项卡
         try:
             print("尝试点击八大人群分布人数选项卡...")
-            
-            # 尝试多种方法找到并点击八大人群分布人数选项卡
+            # 使用更广泛的文本匹配
             try:
-                # 通过数据属性更精确地定位
-                page.locator("div[data-e2e*='crowd_distribution'], div[data-e2e*='人群分布']").click(timeout=5000)
-                print("通过数据属性成功点击八大人群分布人数选项卡")
-            except Exception as e1:
-                print(f"通过数据属性点击八大人群分布人数选项卡失败: {e1}")
-                
-                # 使用更广泛的文本匹配
-                try:
-                    page.locator("div").filter(has_text=re.compile(r".*人群分布.*")).first.click(timeout=5000)
-                    print("通过模糊文本成功点击八大人群分布人数选项卡")
-                except Exception as e3:
-                    print(f"通过模糊文本点击失败: {e3}")
+                page.locator("div").filter(has_text=re.compile(r".*人群分布.*")).first.click(timeout=5000)
+                print("通过模糊文本成功点击八大人群分布人数选项卡")
+            except Exception as e3:
+                print(f"通过模糊文本点击失败: {e3}")
                     
-                    # 最后使用JavaScript方法
-                    try:
-                        js_click = '''
-                        (function() {
-                            // 尝试找到包含"人群分布"或"八大人群"文本的元素
-                            const elements = Array.from(document.querySelectorAll('div, span, button'));
-                            const target = elements.find(el => 
-                                el.innerText && (
-                                    el.innerText.includes('人群分布') || 
-                                    el.innerText.includes('八大人群') ||
-                                    el.innerText.includes('分布人数')
-                                )
-                            );
-                            
-                            if (target) {
-                                target.click();
-                                return '找到并点击了人群分布相关元素';
-                            }
-                            return '未找到人群分布相关元素';
-                        })();
-                        '''
-                        result = page.evaluate(js_click)
-                        print(f"使用JavaScript点击八大人群分布人数选项卡: {result}")
-                    except Exception as e4:
-                        print(f"使用JavaScript点击失败: {e4}")
         except Exception as e:
             print(f"所有点击八大人群分布人数选项卡的方式都失败: {e}")
         
@@ -603,88 +339,6 @@ def capture_population_chart(page, screenshots_dir, file_prefix):
                     return screenshot_path
             except Exception as e:
                 print(f"通过特定特征定位canvas失败: {e}")
-            
-            # 方法2: 尝试截取整个图表区域
-            try:
-                # 查找可能包含图表的区域
-                area_selectors = [
-                    "div.distribution-chart", 
-                    "div[class*='distribution']",
-                    "div[class*='crowd']", 
-                    "div.chart-container",
-                    "div.chart-wrapper",
-                    "div.content-analyze section",
-                    "div.content-population"
-                ]
-                
-                for selector in area_selectors:
-                    try:
-                        area = page.locator(selector).first
-                        area_path = os.path.join(screenshots_dir, f"{file_prefix}_区域.png")
-                        area.screenshot(path=area_path)
-                        print(f"成功截取人群分布区域，保存为: {area_path}")
-                        return area_path
-                    except Exception:
-                        continue
-            except Exception as e2:
-                print(f"截取图表区域失败: {e2}")
-            
-            # 方法3: 使用JS截取整个可视区域中的图表部分
-            try:
-                js_screenshot = '''
-                (function() {
-                    // 查找包含图表的区域
-                    const chartContainers = Array.from(document.querySelectorAll(
-                        'div[class*="chart"], div[class*="population"], div[class*="distribution"], section'
-                    )).filter(el => {
-                        const rect = el.getBoundingClientRect();
-                        // 只选择视口中足够大的元素，很可能是图表容器
-                        return rect.width > 400 && rect.height > 200 && 
-                               rect.top >= 0 && rect.bottom <= window.innerHeight;
-                    });
-                    
-                    if (chartContainers.length > 0) {
-                        // 返回元素信息，供后续定位使用
-                        return chartContainers.map(el => ({
-                            tag: el.tagName,
-                            id: el.id,
-                            className: el.className,
-                            text: el.innerText.substring(0, 50) + '...'
-                        }));
-                    }
-                    return null;
-                })();
-                '''
-                containers = page.evaluate(js_screenshot)
-                print(f"找到可能的图表容器: {containers}")
-                
-                if containers and len(containers) > 0:
-                    for container_info in containers: # Renamed to avoid conflict
-                        try:
-                            selector = ""
-                            if container_info.get("id"):
-                                selector = f"#{container_info['id']}"
-                            elif container_info.get("className"):
-                                class_name = container_info['className'].split(' ')[0]
-                                selector = f".{class_name}"
-                            else:
-                                continue
-                                
-                            container_el = page.locator(selector).first
-                            container_path = os.path.join(screenshots_dir, f"{file_prefix}_容器.png")
-                            container_el.screenshot(path=container_path)
-                            print(f"成功截取容器元素，保存为: {container_path}")
-                            return container_path
-                        except Exception:
-                            continue
-            except Exception as e3:
-                print(f"使用JS查找图表容器失败: {e3}")
-            
-            # 最后方案：截取整个页面
-            page_path = os.path.join(screenshots_dir, f"{file_prefix}_全页面.png")
-            page.screenshot(path=page_path)
-            print(f"所有方法都失败，已截取整个页面，保存为: {page_path}")
-            return page_path
             
         except Exception as e:
             print(f"截取八大人群分布人数图表失败: {e}")
@@ -750,16 +404,16 @@ def main():
             page1 = page1_info.value
             
             # 处理弹窗
-            print("处理可能的弹窗...")
-            handle_popups(page1)
+            # print("处理可能的弹窗...")
+            # handle_popups(page1)
 
             # 导航到数据分析页面
             page1.get_by_role("button", name="数据").click()
             page1.locator("a").filter(has_text="全域数据").click()
             time.sleep(3)
             
-            # 处理点击全域数据后可能出现的弹窗
-            handle_popups(page1)
+            # # 处理点击全域数据后可能出现的弹窗
+            # handle_popups(page1)
             
             page1.locator("div").filter(has_text=re.compile(r"^素材数据$")).nth(2).click()
             time.sleep(3)
