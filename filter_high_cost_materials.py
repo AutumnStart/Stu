@@ -126,6 +126,63 @@ def safe_convert_to_float(value):
         # 转换失败则返回None
         return None
 
+def check_feishu_table_fields(client, config):
+    """
+    【新增】表格结构自检功能。
+    连接到飞书，获取表的实际字段，并与脚本要求的字段进行比对。
+    """
+    print("  - 正在进行飞书表格结构自检...")
+    try:
+        # 1. 构建请求以获取指定表的字段列表
+        field_request = lark.api.bitable.v1.ListAppTableFieldRequest.builder() \
+            .app_token(config["base_app_token"]) \
+            .table_id(config["table_id"]) \
+            .build()
+        
+        # 2. 发送API请求
+        response = client.bitable.v1.app_table_field.list(field_request)
+
+        # 3. 检查API调用是否成功
+        if not response.success():
+            print(f"  - ❌ 自检失败：无法获取表格字段列表。飞书API错误: {response.msg}")
+            print(f"    请检查feishu_config.json中的 'base_app_token' 和 'table_id' 是否正确，")
+            print(f"    以及机器人是否已被添加为该表格的协作者。")
+            return False
+
+        # 4. 提取表格中实际存在的字段名
+        actual_fields = set()
+        if response.data and response.data.items:
+            actual_fields = {field.field_name for field in response.data.items}
+        
+        print(f"  - ✅ 成功获取表格结构，包含字段: {sorted(list(actual_fields))}")
+
+        # 5. 定义脚本需要上传的字段名集合
+        required_fields = {
+            "素材ID", "素材名称", "消耗", "创建日期", "评审", "整体支付ROI", # 修正：将'AI建议'改为'评审'
+            "整体成交金额", "整体转化率", "整体点击率", "基础消耗", "平均观看时长",
+            "3秒播放率", "视频完播率", "追投调控消耗", "追投调控成交金额", 
+            "追投调控支付ROI", "追投调控转化率"
+        }
+        
+        # 6. 对比，找出缺失的字段
+        missing_fields = required_fields - actual_fields
+        
+        if not missing_fields:
+            print("  - ✅ 表格结构自检通过，所有必需字段均存在。")
+            return True
+        else:
+            print("\n  - ❌ 自检失败：发现字段不匹配！")
+            print(f"    - 脚本需要的字段: {sorted(list(required_fields))}")
+            print(f"    - 飞书表格现有的字段: {sorted(list(actual_fields))}")
+            print(f"    - ❗❗【请重点检查】以下脚本需要的字段，在您的飞书表格中【不存在】或【名称不完全匹配】(注意空格或错别字):")
+            for field in sorted(list(missing_fields)):
+                print(f"      - \"{field}\"")
+            return False
+
+    except Exception as e:
+        print(f"  - ❌ 自检过程中发生未知异常: {e}")
+        return False
+
 # --- 主逻辑 ---
 
 if __name__ == "__main__":
@@ -193,6 +250,12 @@ if __name__ == "__main__":
         .log_level(lark.LogLevel.WARNING) \
         .build()
 
+    # 在上传前执行一次表格结构自检
+    if not check_feishu_table_fields(feishu_client, feishu_config):
+        input("\n请根据上面的提示检查并修正飞书表格中的列名，然后重新运行脚本。按回车键退出...")
+        exit()
+
+    print("\n5. 开始上传数据...")
     success_count = 0
     fail_count = 0
 
@@ -226,7 +289,7 @@ if __name__ == "__main__":
             "素材名称": material_name,
             "消耗": cost_value,
             "创建日期": date_value,
-            "AI建议": "等待AI生成建议...",
+            "评审": "等待AI生成建议...", # 修正：将'AI建议'改为'评审'
             
             # --- 效果指标 (区分类型处理) ---
             # 数字类型，需要安全转换
