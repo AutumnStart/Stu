@@ -50,8 +50,10 @@ FangXieZhiLian/
 │   ├── 素材数据.xlsx     # 原始素材数据Excel文件
 │   └── 素材ID.json       # 提取的素材ID
 ├── merge_data.bat        # 数据处理自动化工具
-├── run_cost_filter.bat   # 高消耗素材筛选批处理脚本
-├── start_prediction_system.bat  # 素材潜力预测系统启动脚本
+├── filter_high_cost_materials.py   # 裂变脚本
+├── run_all.bat  # 素材筛选和上传、裂变上传
+├── feishu_write.py  # 飞书写入功能
+├── json.analysis.py  # 素材报告切割功能
 └── .gitignore            # Git忽略文件配置
 ```
 
