@@ -11,37 +11,56 @@ from datetime import datetime
 class FeishuBitable:
     """飞书多维表格操作类"""
     
-    def __init__(self, config_file='feishu_config.json'):
+    def __init__(self, config_file='feishu_config.json', profile_name=None):
         """初始化飞书API连接
         
         参数:
-            config_file: 配置文件路径，包含飞书应用凭证和多维表信息
+            config_file: 配置文件路径
+            profile_name: 要使用的配置档案名称
         """
-        self.config = self._load_config(config_file)
+        if profile_name is None:
+            print("错误: 初始化 FeishuBitable 时必须提供 profile_name。")
+            exit(1)
+        self.config = self._load_config(config_file, profile_name)
+        if not self.config:
+            exit(1)
         self.access_token = None
         self.token_expires = 0
         
-    def _load_config(self, config_file):
-        """加载配置文件"""
+    def _load_config(self, config_file, profile_name):
+        """加载指定profile的配置文件"""
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            return config
+                all_configs = json.load(f)
+
+            profiles = all_configs.get("profiles", {})
+            profile_config = profiles.get(profile_name)
+
+            if not profile_config:
+                print(f"错误: 在 '{config_file}' 的 'profiles' 部分中找不到名为 '{profile_name}' 的配置。")
+                return None
+
+            # 创建一个新的、规范化的配置字典，统一处理大小写和别名问题
+            final_config = {
+                "app_id": profile_config.get("app_id") or profile_config.get("APP_ID"),
+                "app_secret": profile_config.get("app_secret") or profile_config.get("APP_SECRET"),
+                "bitable_app_token": profile_config.get("base_app_token") or profile_config.get("BASE_APP_TOKEN") or profile_config.get("bitable_app_token"),
+                "table_id": profile_config.get("table_id") or profile_config.get("TABLE_ID")
+            }
+
+            # 检查必要的键是否存在
+            if not all(final_config.values()):
+                missing_keys = [k for k, v in final_config.items() if not v]
+                print(f"错误: 配置 '{profile_name}' 中缺少必要的键: {missing_keys}")
+                return None
+
+            return final_config
         except FileNotFoundError:
             print(f"错误: 配置文件 '{config_file}' 未找到")
-            print("请确保配置文件包含以下信息:")
-            print("""
-            {
-                "app_id": "飞书应用的App ID",
-                "app_secret": "飞书应用的App Secret",
-                "bitable_app_token": "多维表格的应用Token",
-                "table_id": "多维表格的表格ID"
-            }
-            """)
-            exit(1)
+            return None
         except json.JSONDecodeError:
             print(f"错误: 配置文件 '{config_file}' 格式不正确，请确保是有效的JSON格式")
-            exit(1)
+            return None
     
     def _get_access_token(self):
         """获取飞书访问令牌"""
@@ -127,7 +146,7 @@ class FeishuBitable:
         return success_count
 
 
-def excel_to_feishu(excel_file, config_file='feishu_config.json'):
+def excel_to_feishu(excel_file, config_file='feishu_config.json', profile_name=None):
     """
     将水平格式的Excel文件数据作为单条记录写入飞书多维表，并使用字段映射。
     
@@ -226,9 +245,9 @@ def excel_to_feishu(excel_file, config_file='feishu_config.json'):
         
         if unmapped_keys:
             print(f"警告: 以下字段在映射表中未找到，将被忽略: {unmapped_keys}")
-            
-        # 初始化飞书多维表操作类
-        bitable = FeishuBitable(config_file)
+        
+        # 初始化飞书多维表操作类，并传入profile_name
+        bitable = FeishuBitable(config_file=config_file, profile_name=profile_name)
         
         # 将映射后的记录包装在列表中，调用现有的批量创建方法
         success_count = bitable.create_records([mapped_record])
@@ -242,27 +261,23 @@ def excel_to_feishu(excel_file, config_file='feishu_config.json'):
         return 0
 
 
+def find_latest_excel_in_report_dir():
+    """在 'analysis_report' 目录下找到最新的Excel文件"""
+    report_dir = 'analysis_report'
+    excel_files = [f for f in os.listdir(report_dir) if f.endswith('.xlsx') and not f.startswith('~$')]
+    if not excel_files:
+        print(f"在目录 '{report_dir}' 中没有找到Excel文件。")
+        return None
+    
+    latest_file = max(excel_files, key=lambda f: os.path.getmtime(os.path.join(report_dir, f)))
+    return os.path.join(report_dir, latest_file)
+
 def main():
     """主函数"""
     analysis_dir = './analysis_report'
     config_file = 'feishu_config.json'
-    
-    # 检查配置文件是否存在
-    if not os.path.exists(config_file):
-        # 如果不存在，创建示例配置文件
-        with open('feishu_config_template.json', 'w', encoding='utf-8') as f:
-            template = {
-                "app_id": "飞书应用的App ID",
-                "app_secret": "飞书应用的App Secret",
-                "bitable_app_token": "多维表格的应用Token",
-                "table_id": "多维表格的表格ID"
-            }
-            json.dump(template, f, ensure_ascii=False, indent=4)
-            
-        print(f"已创建配置文件模板 'feishu_config_template.json'")
-        print("请填写正确的飞书应用信息和现有多维表信息，并重命名为 'feishu_config.json'")
-        print("注意：脚本不会创建新的多维表，而是将数据写入已存在的多维表中")
-        return
+    # 为这个脚本硬编码指定它应该使用的配置名称
+    profile_name_for_this_script = "another_function_placeholder" 
     
     # 检查分析目录是否存在
     if not os.path.exists(analysis_dir):
@@ -275,7 +290,7 @@ def main():
     if not all_files:
         print(f"在 '{analysis_dir}' 目录中未找到Excel文件")
         return
-
+    
     # 过滤掉临时文件（以~$开头）
     excel_files = [f for f in all_files if not os.path.basename(f).startswith('~$')]
 
@@ -290,28 +305,26 @@ def main():
     print(f"找到最新的Excel文件: {os.path.basename(latest_file)}")
     print("准备将数据写入到已存在的飞书多维表中...")
     
-    # 只处理最新的Excel文件
-    total_records = excel_to_feishu(latest_file, config_file)
+    # 在调用excel_to_feishu时，传入正确的profile_name
+    total_records = excel_to_feishu(latest_file, config_file, profile_name=profile_name_for_this_script)
     
-    print(f"\n文件处理完成，共向飞书多维表添加了 {total_records} 条记录")
+    if total_records > 0:
+        print(f"\n文件处理完成，共向飞书多维表添加了 {total_records} 条记录")
     
-    # 记录执行日志
-    log_dir = os.path.join(analysis_dir, 'logs')
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        # 记录执行日志
+        log_dir = os.path.join(analysis_dir, 'logs')
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_file = os.path.join(log_dir, f'feishu_upload_{timestamp}.log')
         
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_file = os.path.join(log_dir, f'feishu_upload_{timestamp}.log')
-    
-    with open(log_file, 'w', encoding='utf-8') as f:
-        f.write(f"上传时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"处理文件数: 1\n")
-        f.write(f"上传记录数: {total_records}\n")
-        f.write(f"文件列表:\n")
-        f.write(f"- {os.path.basename(latest_file)}\n")
-    
-    print(f"执行日志已保存到 {log_file}")
-
+        with open(log_file, 'w', encoding='utf-8') as f:
+            f.write(f"上传时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"处理文件: {os.path.basename(latest_file)}\n")
+            f.write(f"上传记录数: {total_records}\n")
+        
+        print(f"执行日志已保存到 {log_file}")
 
 if __name__ == "__main__":
-    main() 
+    main()

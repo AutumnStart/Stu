@@ -1016,7 +1016,12 @@ def main():
     
     # 读取Excel文件
     try:
-        df = pd.read_excel(data_file)
+        # 定义可能的素材ID列名
+        possible_id_cols = ['素材ID', '素材id', 'material_id', '视频ID']
+        # 使用converters确保ID列被当作字符串读取，避免精度丢失
+        converters = {col: str for col in possible_id_cols}
+        
+        df = pd.read_excel(data_file, converters=converters)
         print(f"✅ 成功读取数据 - 共 {len(df)} 条记录")
     except Exception as e:
         print(f"❌ 读取数据时出错: {e}")

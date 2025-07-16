@@ -1,190 +1,264 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-素材高消耗筛选工具
-High Cost Materials Filter
+素材高消耗筛选并写入飞书多维表格工具
+High Cost Materials Filter & Feishu Bitable Uploader
 
-功能：从form文件夹读取Excel数据，筛选整体消耗>10000的素材，输出素材名称到控制台
+功能：
+1. 从'form'文件夹读取最新的、包含'全域数据'关键字的Excel文件。
+2. 筛选出'整体消耗'大于10000的素材。
+3. 读取'feishu_config.json'中的配置。
+4. 连接到指定的飞书多维表格。
+5. 将筛选出的高消耗素材数据逐条写入表格。
+
 作者：MiniMax Agent
-版本：v1.0
+版本：v4.0 - Feishu Integration
 """
 
-import os
 import pandas as pd
 import glob
-import re
-from datetime import datetime
+import json
+import os
+import lark_oapi as lark
+from lark_oapi.api.bitable.v1 import CreateAppTableRecordRequest, AppTableRecord
 
-def get_latest_excel_file(directory="form"):
-    """获取指定目录中最新的Excel文件"""
-    print(f"📂 正在扫描{directory}文件夹...")
-    
-    # 查找所有Excel文件
-    excel_files = glob.glob(f"{directory}/*.xlsx")
-    
-    if not excel_files:
-        print(f"❌ {directory}文件夹中未找到Excel文件")
-        return None
-    
-    # 过滤掉临时文件（以~$开头的文件）
-    excel_files = [f for f in excel_files if not os.path.basename(f).startswith("~$")]
-    
-    if not excel_files:
-        print(f"❌ {directory}文件夹中未找到有效的Excel文件")
-        return None
-    
-    # 按修改时间排序，获取最新的文件
-    excel_files.sort(key=os.path.getmtime, reverse=True)
-    latest_file = excel_files[0]
-    
-    print(f"✅ 找到最新数据文件: {latest_file}")
-    return latest_file
+# --- 全局函数区域 ---
 
-def format_number_with_commas(value):
-    """将数字格式化为带千位分隔符的字符串"""
-    return f"{value:,.2f}"
-
-def filter_high_cost_materials(file_path):
-    """筛选整体消耗大于10000的素材，并输出指令到控制台"""
-    if not file_path or not os.path.exists(file_path):
-        print(f"❌ 文件不存在: {file_path}")
-        return
-    
-    print(f"📖 正在读取文件: {file_path}")
-    try:
-        # 读取Excel文件
-        df = pd.read_excel(file_path)
-        print(f"✅ 成功读取数据 - 共 {len(df)} 条记录")
-        
-        # 查找消耗列
-        cost_column = next((col for col in ['整体消耗', '消耗', '总消耗', '花费', 'cost'] if col in df.columns), None)
-        if not cost_column:
-            print("❌ 未找到整体消耗相关字段")
-            return
-        assert isinstance(cost_column, str)
-        print(f"🔍 使用字段: {cost_column}")
-        
-        # 查找名称列
-        name_column = next((col for col in ['素材名称', '素材标题', '标题', '名称', 'title', 'name'] if col in df.columns), None)
-        if not name_column:
-            print("❌ 未找到素材名称相关字段")
-            return
-        assert isinstance(name_column, str)
-        print(f"🔍 使用字段: {name_column}")
-        
-        # 查找ID列
-        id_column = next((col for col in ['素材ID', '素材id', 'material_id', '视频ID'] if col in df.columns), None)
-        if not id_column:
-            print("⚠️ 未找到素材ID相关字段，输出结果将不包含素材ID")
-        else:
-            print(f"🔍 使用字段: {id_column}")
-        
-        # 清理消耗列，并转换为数值
-        if df[cost_column].dtype == 'object':
-            df[cost_column] = df[cost_column].astype(str).str.replace(r'[,\s¥$￥]', '', regex=True)
-        df[cost_column] = pd.to_numeric(df[cost_column], errors='coerce')
-        df.dropna(subset=[cost_column], inplace=True)
-        
-        # --- 高消耗素材 (> 10000) ---
-        filtered_df = df[df[cost_column] > 10000].copy()
-        high_cost_df = filtered_df.sort_values(by=cost_column, ascending=False)  # type: ignore
-        
-        print("\n" + "=" * 60)
-        print("今日指令:")
-        print("=" * 60)
-        
-        if not high_cost_df.empty:
-            for _, row in high_cost_df.iterrows():
-                name = row[name_column] if pd.notna(row[name_column]) else "未命名素材"  # type: ignore
-                cost = row[cost_column]
-                formatted_cost = format_number_with_commas(cost)
-                material_id = f"-{row[id_column]}" if id_column and pd.notna(row[id_column]) else ""  # type: ignore
-                print(f"  {name}{material_id}消耗达到\"{formatted_cost}\",请进行裂变")
-        else:
-            print("  今日无高消耗素材需要裂变。")
-        
-        # --- 总结 ---
-        print("\n" + "=" * 60)
-        if high_cost_df.empty:
-            print("✅ 本次分析未找到任何消耗大于10000的素材。")
-        else:
-            print(f"✅ 分析完成: 共找到 {len(high_cost_df)} 个高消耗素材。")
-
-    except Exception as e:
-        print(f"❌ 处理数据时出错: {e}")
-        import traceback
-        traceback.print_exc()
-
-def find_json_file_for_material(material_name, json_folder='json'):
-    """根据素材名称在指定文件夹中查找对应的JSON分析文件。"""
-    for root, _, files in os.walk(json_folder):
-        for file in files:
-            # 构造一个更灵活的匹配，只要文件名（不含扩展名）与素材名完全一致
-            if os.path.splitext(file)[0] == material_name and file.endswith('.json'):
-                return os.path.join(root, file)
+def find_cost_column(df):
+    """动态查找消耗列名。"""
+    potential_columns = ['整体消耗', '消耗', '总消耗', '花费', '总花费', 'cost', 'spend', '总费用']
+    for col in potential_columns:
+        if col in df.columns:
+            return col
     return None
 
-def filter_materials_by_sop(excel_file):
-    """
-    根据SOP策略筛选素材。
-    - 消耗 > 10000: 裂变
-    - 1000 < 消耗 <= 10000: 迭代
-    """
+def find_target_excel_file(folder_path, keyword="全域数据"):
+    """查找包含关键字的最新Excel文件，忽略临时文件。"""
+    list_of_files = glob.glob(os.path.join(folder_path, '*.xlsx'))
+    non_temp_files = [f for f in list_of_files if not os.path.basename(f).startswith('~$')]
+    keyword_files = [f for f in non_temp_files if keyword in os.path.basename(f)]
+    if not keyword_files:
+        return None
+    return max(keyword_files, key=os.path.getctime)
+
+def _load_feishu_config(profile_name):
+    config_file = 'feishu_config.json'
     try:
-        df = pd.read_excel(excel_file, engine='openpyxl')
+        with open(config_file, 'r', encoding='utf-8') as f:
+            all_configs = json.load(f)
+
+        profiles = all_configs.get("profiles", {})
+        profile_config = profiles.get(profile_name)
+
+        if not profile_config:
+            print(f"错误: 在 '{config_file}' 的 'profiles' 部分中找不到名为 '{profile_name}' 的配置。")
+            return None
+
+        final_config = {
+            "app_id": profile_config.get("app_id") or profile_config.get("APP_ID"),
+            "app_secret": profile_config.get("app_secret") or profile_config.get("APP_SECRET"),
+            "base_app_token": profile_config.get("base_app_token") or profile_config.get("BASE_APP_TOKEN"),
+            "table_id": profile_config.get("table_id") or profile_config.get("TABLE_ID")
+        }
+
+        if not all(final_config.values()):
+            missing_keys = [k for k, v in final_config.items() if not v]
+            print(f"错误: 配置 '{profile_name}' 中缺少必要的键: {missing_keys}")
+            return None
+        
+        return final_config
     except FileNotFoundError:
-        print(f"错误: Excel文件未找到 -> {excel_file}")
-        return
+        print(f"❌ 错误: 配置文件 '{config_file}' 未找到。")
+        return None
+    except json.JSONDecodeError:
+        print("❌ 错误: 'feishu_config.json' 文件格式不正确。")
+        return None
 
-    # 根据SOP定义筛选条件
-    df['建议操作'] = ''
-    fission_condition = df['消耗'] > 10000
-    iteration_condition = (df['消耗'] > 1000) & (df['消耗'] <= 10000)
+def write_to_feishu_bitable(client, config, record_data):
+    """将单条记录写入飞书多维表格。"""
+    request = lark.bitable.v1.model.CreateAppTableRecordRequest.builder() \
+        .app_token(config["base_app_token"]) \
+        .table_id(config["table_id"]) \
+        .request_body(lark.bitable.v1.model.AppTableRecord.builder().fields(record_data).build()) \
+        .build()
 
-    # 使用 .loc 进行赋值以避免 SettingWithCopyWarning
-    df.loc[fission_condition, '建议操作'] = '裂变'
-    df.loc[iteration_condition, '建议操作'] = '迭代'
+    try:
+        response = client.bitable.v1.app_table_record.create(request)
 
-    # 筛选出需要操作的素材
-    materials_to_process = df[df['建议操作'] != ''].copy()
+        if not response.success():
+            lark.logger.error(
+                f"调用飞书API失败, code: {response.code}, msg: {response.msg}, log_id: {response.get_log_id()}"
+            )
+            return False
+        
+        print(f"  -> ✅ 上传成功!")
+        return True
+    except Exception as e:
+        print(f"  - 写入飞书时发生网络或API错误: {e}")
+        return False
 
-    if materials_to_process.empty:
-        print("没有找到符合SOP条件的素材。")
-        return
+def safe_convert_to_float(value):
+    """
+    【新增】安全地将值转换为浮点数。
+    - 处理含'%'的百分比字符串。
+    - 处理含','的千位分隔符字符串。
+    - 忽略无法转换的值，返回None。
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    try:
+        # 如果已经是数字，直接返回
+        if isinstance(value, (int, float)):
+            return float(value)
+        
+        # 如果是字符串，进行清洗
+        s_value = str(value).strip()
+        if '%' in s_value:
+            # 是百分比，移除'%'并除以100
+            return float(s_value.replace('%', '')) / 100.0
+        elif ',' in s_value:
+            # 是带千位符的数字，移除','
+            return float(s_value.replace(',', ''))
+        else:
+            # 尝试直接转换
+            return float(s_value)
+    except (ValueError, TypeError):
+        # 转换失败则返回None
+        return None
 
-    # 为筛选出的素材匹配对应的JSON分析文件路径
-    # 使用 .loc 保证赋值的准确性
-    materials_to_process['json_file_path'] = materials_to_process['素材名称'].apply(find_json_file_for_material) # type: ignore
-
-    # 过滤掉那些没有找到JSON文件的素材
-    final_materials = materials_to_process.dropna(subset=['json_file_path']) # type: ignore
-
-    if final_materials.empty:
-        print("找到了符合条件的素材，但未能匹配到任何JSON分析文件。")
-        return
-
-    # 保存到CSV文件中，供下一个脚本使用
-    DATA_DIR = "form" # 假设数据文件夹名为form
-    output_path = os.path.join(DATA_DIR, 'filtered_materials_for_processing.csv')
-    final_materials.to_csv(output_path, index=False, encoding='utf-8-sig')
-
-    print(f"已根据SOP筛选出 {len(final_materials)} 个素材，建议操作已保存至: {output_path}")
-
-
-def main():
-    """主函数"""
-    print("=" * 60)
-    print("🔍 素材高消耗筛选工具")
-    print("=" * 60)
-    
-    # 获取最新的Excel文件
-    latest_file = get_latest_excel_file()
-    if latest_file:
-        print(f"找到最新的素材数据文件: {latest_file}")
-        # 根据SOP筛选高消耗素材
-        filter_materials_by_sop(latest_file)
-    else:
-        print("在 'form' 文件夹中没有找到任何Excel文件。")
+# --- 主逻辑 ---
 
 if __name__ == "__main__":
-    main() 
+    # 1. 初始化
+    print("==========================================================")
+    print(" 素材高消耗筛选及飞书上传工具 v4.1 (多目标版)")
+    print("==========================================================")
+    excel_folder = './form'
+    cost_threshold = 10000
+    config_profile_name = "high_cost_report" # 指定要使用的配置档案
+
+    # 2. 加载飞书配置
+    print(f"\n1. 正在加载飞书配置 (Profile: {config_profile_name})...")
+    feishu_config = _load_feishu_config(config_profile_name)
+    if not feishu_config:
+        input("请按回车键退出...")
+        exit()
+    print("  - 飞书配置加载成功。")
+
+    # 3. 查找并读取Excel文件
+    print("\n2. 正在查找并读取数据文件...")
+    target_excel_file = find_target_excel_file(excel_folder)
+    if not target_excel_file:
+        print(f"  - ❌ 在 '{excel_folder}' 目录中未找到包含'全域数据'的Excel文件。")
+        input("请按回车键退出...")
+        exit()
+    
+    print(f"  - 📂 找到目标文件: {target_excel_file}")
+    try:
+        # 修正1：使用 converters 强制将所有可能的ID列作为文本读取，杜绝精度丢失
+        possible_id_cols = ['素材ID', '素材id', 'material_id', '视频ID']
+        converters = {col: str for col in possible_id_cols}
+        df = pd.read_excel(target_excel_file, engine='openpyxl', thousands=',', converters=converters)
+        print("  - 文件读取并解析成功。")
+    except Exception as e:
+        print(f"  - ❌ 读取Excel文件时出错: {e}")
+        input("请按回车键退出...")
+        exit()
+
+    # 4. 筛选高消耗数据
+    print("\n3. 正在筛选高消耗素材...")
+    cost_column = find_cost_column(df)
+    if not cost_column:
+        print(f"  - ❌ 在文件中找不到可识别的消耗列。")
+        input("请按回车键退出...")
+        exit()
+        
+    df[cost_column] = pd.to_numeric(df[cost_column], errors='coerce')
+    high_cost_materials = df.dropna(subset=[cost_column])
+    high_cost_materials = high_cost_materials[high_cost_materials[cost_column] > cost_threshold].copy()
+
+    if high_cost_materials.empty:
+        print(f"  - ✅ 没有找到消耗高于 {cost_threshold} 的素材。")
+        print("\n所有操作完成。")
+        input("请按回车键退出...")
+        exit()
+
+    print(f"  - ✅ 找到 {len(high_cost_materials)} 条高消耗素材，准备上传。")
+
+    # 5. 上传到飞书
+    print("\n4. 正在连接飞书并上传数据...")
+    feishu_client = lark.Client.builder() \
+        .app_id(feishu_config["app_id"]) \
+        .app_secret(feishu_config["app_secret"]) \
+        .log_level(lark.LogLevel.WARNING) \
+        .build()
+
+    success_count = 0
+    fail_count = 0
+
+    for index, row in high_cost_materials.iterrows():
+        # a. 准备基础信息
+        material_id = str(row.get('素材ID', ''))
+        material_name = str(row.get('素材名称', '未知素材'))
+        print(f"  - 正在上传: '{material_name[:50]}'...")
+
+        # b. 安全地处理【消耗】字段
+        cost_value = None
+        raw_cost = row.get(cost_column)
+        if raw_cost is not None and pd.notna(raw_cost):
+            try:
+                cost_value = float(raw_cost)
+            except (ValueError, TypeError):
+                pass # 无法转换则保持None
+
+        # c. 安全地处理【创建日期】字段
+        date_value = None
+        raw_date = row.get('素材创建时间') # 修正：使用正确的列名'素材创建时间'
+        if raw_date is not None and pd.notna(raw_date):
+            if isinstance(raw_date, pd.Timestamp):
+                date_value = raw_date.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                date_value = str(raw_date)
+
+        # d. 构建最终只包含目标字段的数据包
+        final_record_raw = {
+            "素材ID": material_id,
+            "素材名称": material_name,
+            "消耗": cost_value,
+            "创建日期": date_value,
+            "AI建议": "等待AI生成建议...",
+            
+            # --- 效果指标 (区分类型处理) ---
+            # 数字类型，需要安全转换
+            "整体支付ROI": safe_convert_to_float(row.get('整体支付ROI')),
+            "整体成交金额": safe_convert_to_float(row.get('整体成交金额')),
+            # 文本类型，直接获取原始字符串
+            "整体转化率": str(row.get('整体转化率', '') or ''),
+            "整体点击率": str(row.get('整体点击率', '') or ''),
+
+            # --- 新增的详细效果指标 ---
+            "基础消耗": safe_convert_to_float(row.get('基础消耗')),
+            "平均观看时长": str(row.get('平均观看时长', '') or ''),
+            "3秒播放率": str(row.get('3秒播放率', '') or ''),
+            "视频完播率": str(row.get('视频完播率', '') or ''),
+            "追投调控消耗": safe_convert_to_float(row.get('追投调控消耗')),
+            "追投调控成交金额": safe_convert_to_float(row.get('追投调控成交金额')),
+            "追投调控支付ROI": safe_convert_to_float(row.get('追投调控支付ROI')),
+            "追投调控转化率": str(row.get('追投调控转化率', '') or '')
+        }
+
+        # 清理字典中的NaN/NaT值，转换为None以兼容JSON和飞书API
+        final_record = {k: (v if pd.notna(v) else None) for k, v in final_record_raw.items()}
+
+        # e. 上传干净的数据包
+        if write_to_feishu_bitable(feishu_client, feishu_config, final_record):
+            success_count += 1
+        else:
+            fail_count += 1
+
+    print("\n-----------------------------------------")
+    print("上传完成!")
+    print(f"  - 成功: {success_count}条")
+    print(f"  - 失败: {fail_count}条")
+    print("==========================================================")
+    input("请按回车键退出...") 
