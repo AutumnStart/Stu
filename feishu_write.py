@@ -92,6 +92,39 @@ class FeishuBitable:
             print(f"请求访问令牌时发生错误: {str(e)}")
             return None
     
+    def check_record_exists(self, material_id):
+        """【新增】检查指定素材ID的记录是否已存在"""
+        token = self._get_access_token()
+        if not token:
+            return True # 发生错误时，默认为存在以防止重复写入
+
+        # 构建请求，使用 filter 参数进行精确查询
+        url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{self.config['bitable_app_token']}/tables/{self.config['table_id']}/records"
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+        }
+        params = {
+            "filter": f'CurrentValue.[素材ID]="{material_id}"',
+            "page_size": 1
+        }
+
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            if data["code"] != 0:
+                print(f"  - 检查重复记录时出错: {data['msg']}")
+                return True # API出错，同样默认记录存在
+            
+            # 如果 total > 0，说明记录已存在
+            return data.get("data", {}).get("total", 0) > 0
+
+        except requests.RequestException as e:
+            print(f"  - 检查重复记录时发生网络错误: {e}")
+            return True
+
     def create_records(self, data_list):
         """向已存在的多维表中添加记录
         
@@ -224,6 +257,31 @@ def excel_to_feishu(excel_file, config_file='feishu_config.json', profile_name=N
         keys = df.iloc[0].tolist()
         values = df.iloc[1].tolist()
         
+        # 将键值对存入字典，以便后续轻松获取素材ID
+        excel_data = dict(zip(keys, values))
+
+        # 【去重第一步】获取素材ID
+        material_id_key = '素材ID'
+        raw_material_id = excel_data.get(material_id_key)
+        
+        # 强化ID处理：将ID转换为字符串并去除前后空格
+        material_id = str(raw_material_id).strip() if raw_material_id is not None and pd.notna(raw_material_id) else ""
+
+        if not material_id:
+            print(f"警告: 文件 '{os.path.basename(excel_file)}' 中未找到有效的 '{material_id_key}' (或ID为空)。无法进行去重检查。将跳过此文件。")
+            return 0
+        
+        # 初始化飞书客户端，以便进行重复检查
+        bitable = FeishuBitable(config_file=config_file, profile_name=profile_name)
+
+        # 【去重第二步】检查记录是否已存在
+        print(f"  - 正在检查素材ID '{material_id}' 是否已存在于飞书...")
+        if bitable.check_record_exists(material_id):
+            print(f"  - ✅ 记录已存在，本次将跳过，不会重复上传。")
+            return 0 # 返回0表示没有添加新记录
+
+        print(f"  - 记录不存在，准备上传新数据...")
+        
         # 应用字段映射
         mapped_record = {}
         unmapped_keys = []
@@ -246,10 +304,19 @@ def excel_to_feishu(excel_file, config_file='feishu_config.json', profile_name=N
         if unmapped_keys:
             print(f"警告: 以下字段在映射表中未找到，将被忽略: {unmapped_keys}")
         
-        # 初始化飞书多维表操作类，并传入profile_name
-        bitable = FeishuBitable(config_file=config_file, profile_name=profile_name)
+        # 【终极加固】数据质量检查：防止上传只有ID的“幽灵空行”
+        # 检查除了ID和名称外，是否至少有一个其他字段包含有效数据
+        keys_to_ignore_for_emptiness_check = {'素材ID', '素材名称', '分析时间'}
+        core_analysis_fields = {k: v for k, v in mapped_record.items() if k not in keys_to_ignore_for_emptiness_check}
         
-        # 将映射后的记录包装在列表中，调用现有的批量创建方法
+        # 如果核心分析字段全为空，则认为这是一条无效记录
+        is_substantially_empty = not core_analysis_fields or all(pd.isna(v) or str(v).strip() == "" for v in core_analysis_fields.values())
+
+        if not mapped_record or is_substantially_empty:
+            print(f"错误: 文件 '{os.path.basename(excel_file)}' 的内容映射后，缺少核心分析数据，为空或无效。将跳过上传。")
+            return 0
+
+        # 【去重第三步】调用现有的批量创建方法（实际只创建一条）
         success_count = bitable.create_records([mapped_record])
         return success_count
         
