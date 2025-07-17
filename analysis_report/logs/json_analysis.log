@@ -1,10 +1,10 @@
-开始扫描目录 './json/' 查找最新的JSON文件...
-找到最新的JSON文件: ./json/留香珠\素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).json
+开始扫描目录 'D:\project\Demo\workspace-V1.1\WorkSpace\Tool\..\json/' 查找最新的JSON文件...
+找到最新的JSON文件: D:\project\Demo\workspace-V1.1\WorkSpace\Tool\..\json/留香珠\素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).json
 --------------------------------------------------
-开始处理文件: ./json/留香珠\素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).json
-水平Excel表格已保存到 ./analysis_report/素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).xlsx
+开始处理文件: D:\project\Demo\workspace-V1.1\WorkSpace\Tool\..\json/留香珠\素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).json
+水平Excel表格已保存到 D:\project\Demo\workspace-V1.1\WorkSpace\Tool\..\analysis_report/素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).xlsx
 总共处理了 38 个字段
-处理成功！输出文件: ./analysis_report/素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).xlsx
+处理成功！输出文件: D:\project\Demo\workspace-V1.1\WorkSpace\Tool\..\analysis_report/素材分析报告_0605-留香珠-促销-【砍一刀】01-zyjd(1).xlsx
 --------------------------------------------------
 单个JSON文件处理完毕。
-详细日志已保存到 ./analysis_report/logs/json_analysis.log
+详细日志已保存到 D:\project\Demo\workspace-V1.1\WorkSpace\Tool\..\analysis_report/logs/json_analysis.log

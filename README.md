@@ -38,7 +38,9 @@ FangXieZhiLian/
 │   ├── gemini_image_peak_analysis.bat # 图片峰值分析批处理脚本
 │   ├── capture_click_chart.py         # 图表截图工具
 │   ├── download_videos.py             # 视频下载工具
-│   ├── filter_high_cost_materials.py  # 素材高消耗筛选工具
+|   ├── filter_high_cost_materials.py  # 裂变脚本
+|   ├── feishu_write.py                # 飞书写入功能
+|   ├── json.analysis.py               # 素材报告切割功能
 │   └── production_deployment_tool.py  # 素材潜力预测系统
 ├── screenshots/          # 截图保存目录
 │   └── errors/           # 错误截图保存目录
@@ -49,11 +51,10 @@ FangXieZhiLian/
 ├── data/
 │   ├── 素材数据.xlsx     # 原始素材数据Excel文件
 │   └── 素材ID.json       # 提取的素材ID
+|
+├── feishu_config.json    # API配置文件
 ├── merge_data.bat        # 数据处理自动化工具
-├── filter_high_cost_materials.py   # 裂变脚本
-├── run_all.bat  # 素材筛选和上传、裂变上传
-├── feishu_write.py  # 飞书写入功能
-├── json.analysis.py  # 素材报告切割功能
+├── run_all.bat           # 素材筛选和上传、裂变上传
 └── .gitignore            # Git忽略文件配置
 ```
 

@@ -107,25 +107,37 @@ def save_to_excel(data, filename="analysis_report.xlsx", log_file=None):
 
 
 def main():
-    # 定义输入和输出目录
-    json_input_dir = "./json/"
-    output_dir = "./analysis_report/"
-    output_log = "./analysis_report/logs/"
+    # 路径修正：定义相对于项目根目录的输入和输出目录
+    json_input_dir = "json/"
+    output_dir = "analysis_report/"
+    output_log_dir = "analysis_report/logs/"
     
+    # 路径修正：获取脚本所在目录，并构造绝对路径
+    script_dir = os.path.dirname(__file__)
+    base_dir = os.path.join(script_dir, '..') # 返回到项目根目录
+
+    abs_json_input_dir = os.path.join(base_dir, json_input_dir)
+    abs_output_dir = os.path.join(base_dir, output_dir)
+    abs_output_log_dir = os.path.join(base_dir, output_log_dir)
+
     # 创建输出目录
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        log_message(f"创建输出目录: {output_dir}")
+    if not os.path.exists(abs_output_dir):
+        os.makedirs(abs_output_dir)
+        log_message(f"创建输出目录: {abs_output_dir}")
     
-    log_file_path = os.path.join(output_log, "json_analysis.log")
+    if not os.path.exists(abs_output_log_dir):
+        os.makedirs(abs_output_log_dir)
+        log_message(f"创建日志目录: {abs_output_log_dir}")
+
+    log_file_path = os.path.join(abs_output_log_dir, "json_analysis.log")
 
     # 打开日志文件
     with open(log_file_path, 'w', encoding='utf-8') as log_file:
-        log_message(f"开始扫描目录 '{json_input_dir}' 查找最新的JSON文件...", log_file)
+        log_message(f"开始扫描目录 '{abs_json_input_dir}' 查找最新的JSON文件...", log_file)
         
         # 遍历目录查找所有JSON文件
         all_json_files = []
-        for root, _, files in os.walk(json_input_dir):
+        for root, _, files in os.walk(abs_json_input_dir):
             for filename in files:
                 if filename.endswith(".json"):
                     full_path = os.path.join(root, filename)
@@ -134,7 +146,7 @@ def main():
                         all_json_files.append(full_path)
         
         if not all_json_files:
-            log_message(f"在 '{json_input_dir}' 目录及其子目录中未找到任何JSON文件。", log_file)
+            log_message(f"在 '{abs_json_input_dir}' 目录及其子目录中未找到任何JSON文件。", log_file)
             return
 
         # 按文件修改时间降序排序，获取最新的文件
@@ -146,7 +158,7 @@ def main():
         # 构建输出文件名，将.json替换为.xlsx
         base_filename = os.path.basename(latest_json_file)
         output_filename = os.path.splitext(base_filename)[0] + ".xlsx"
-        output_file = os.path.join(output_dir, output_filename)
+        output_file = os.path.join(abs_output_dir, output_filename)
         
         log_message("-" * 50, log_file)
         log_message(f"开始处理文件: {latest_json_file}", log_file)

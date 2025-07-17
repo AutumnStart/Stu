@@ -21,23 +21,25 @@ class FeishuBitable:
         if profile_name is None:
             print("错误: 初始化 FeishuBitable 时必须提供 profile_name。")
             exit(1)
-        self.config = self._load_config(config_file, profile_name)
+        # 路径修正：从脚本所在位置(Tool/)返回上一级目录查找配置文件
+        self.config_file_path = os.path.join(os.path.dirname(__file__), '..', config_file)
+        self.config = self._load_config(self.config_file_path, profile_name)
         if not self.config:
             exit(1)
         self.access_token = None
         self.token_expires = 0
         
-    def _load_config(self, config_file, profile_name):
+    def _load_config(self, config_file_path, profile_name):
         """加载指定profile的配置文件"""
         try:
-            with open(config_file, 'r', encoding='utf-8') as f:
+            with open(config_file_path, 'r', encoding='utf-8') as f:
                 all_configs = json.load(f)
 
             profiles = all_configs.get("profiles", {})
             profile_config = profiles.get(profile_name)
 
             if not profile_config:
-                print(f"错误: 在 '{config_file}' 的 'profiles' 部分中找不到名为 '{profile_name}' 的配置。")
+                print(f"错误: 在 '{os.path.basename(config_file_path)}' 的 'profiles' 部分中找不到名为 '{profile_name}' 的配置。")
                 return None
 
             # 创建一个新的、规范化的配置字典，统一处理大小写和别名问题
@@ -56,10 +58,10 @@ class FeishuBitable:
 
             return final_config
         except FileNotFoundError:
-            print(f"错误: 配置文件 '{config_file}' 未找到")
+            print(f"错误: 配置文件 '{os.path.basename(config_file_path)}' 未找到")
             return None
         except json.JSONDecodeError:
-            print(f"错误: 配置文件 '{config_file}' 格式不正确，请确保是有效的JSON格式")
+            print(f"错误: 配置文件 '{os.path.basename(config_file_path)}' 格式不正确，请确保是有效的JSON格式")
             return None
     
     def _get_access_token(self):
@@ -330,10 +332,11 @@ def excel_to_feishu(excel_file, config_file='feishu_config.json', profile_name=N
 
 def find_latest_excel_in_report_dir():
     """在 'analysis_report' 目录下找到最新的Excel文件"""
-    report_dir = 'analysis_report'
+    # 路径修正：从脚本所在位置(Tool/)返回上一级目录再进入目标文件夹
+    report_dir = os.path.join(os.path.dirname(__file__), '..', 'analysis_report')
     excel_files = [f for f in os.listdir(report_dir) if f.endswith('.xlsx') and not f.startswith('~$')]
     if not excel_files:
-        print(f"在目录 '{report_dir}' 中没有找到Excel文件。")
+        print(f"在目录 '{os.path.basename(report_dir)}' 中没有找到Excel文件。")
         return None
     
     latest_file = max(excel_files, key=lambda f: os.path.getmtime(os.path.join(report_dir, f)))
@@ -341,18 +344,21 @@ def find_latest_excel_in_report_dir():
 
 def main():
     """主函数"""
-    analysis_dir = './analysis_report'
+    # 路径修正：所有路径都相对于项目根目录
+    analysis_dir = 'analysis_report'
     config_file = 'feishu_config.json'
     # 为这个脚本硬编码指定它应该使用的配置名称
     profile_name_for_this_script = "another_function_placeholder" 
     
+    # 路径修正：从脚本所在位置(Tool/)返回上一级目录再进入目标文件夹
+    abs_analysis_dir = os.path.join(os.path.dirname(__file__), '..', analysis_dir)
     # 检查分析目录是否存在
-    if not os.path.exists(analysis_dir):
-        print(f"错误: 目录 '{analysis_dir}' 不存在")
+    if not os.path.exists(abs_analysis_dir):
+        print(f"错误: 目录 '{abs_analysis_dir}' 不存在")
         return
     
     # 查找所有Excel文件，并获取完整路径
-    all_files = [os.path.join(analysis_dir, f) for f in os.listdir(analysis_dir) if f.endswith('.xlsx')]
+    all_files = [os.path.join(abs_analysis_dir, f) for f in os.listdir(abs_analysis_dir) if f.endswith('.xlsx')]
     
     if not all_files:
         print(f"在 '{analysis_dir}' 目录中未找到Excel文件")
@@ -379,7 +385,8 @@ def main():
         print(f"\n文件处理完成，共向飞书多维表添加了 {total_records} 条记录")
     
         # 记录执行日志
-        log_dir = os.path.join(analysis_dir, 'logs')
+        # 路径修正：日志目录也需要基于新的analysis_dir路径
+        log_dir = os.path.join(abs_analysis_dir, 'logs')
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
             

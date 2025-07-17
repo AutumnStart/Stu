@@ -25,7 +25,7 @@ echo  ======================================================
 echo  [1/4] 正在执行: 素材潜力预测...
 echo  ======================================================
 echo.
-python production_deployment_tool.py
+python Tool/production_deployment_tool.py
 if %errorlevel% neq 0 (
     echo.
     echo  !!!!!!!!!! 错误 !!!!!!!!!!
@@ -44,7 +44,7 @@ echo  ======================================================
 echo  [2/4] 正在执行: 分析报告生成...
 echo  ======================================================
 echo.
-python json_analyzer.py
+python Tool/json_analyzer.py
 if %errorlevel% neq 0 (
     echo.
     echo  !!!!!!!!!! 错误 !!!!!!!!!!
@@ -63,7 +63,7 @@ echo  ======================================================
 echo  [3/4] 正在执行: 分析报告上传至飞书...
 echo  ======================================================
 echo.
-python feishu_write.py
+python Tool/feishu_write.py
 if %errorlevel% neq 0 (
     echo.
     echo  !!!!!!!!!! 错误 !!!!!!!!!!
@@ -82,7 +82,7 @@ echo  ======================================================
 echo  [4/4] 正在执行: 高消耗素材筛选与上传...
 echo  ======================================================
 echo.
-python filter_high_cost_materials.py
+python Tool/filter_high_cost_materials.py
 if %errorlevel% neq 0 (
     echo.
     echo  !!!!!!!!!! 错误 !!!!!!!!!!
