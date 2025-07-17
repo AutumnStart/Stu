@@ -76,22 +76,11 @@ merge_data.bat
 4. 执行图片峰值分析
 5. 合并素材数据和峰值分析结果
 
-### 素材高消耗筛选
 
-运行根目录下的run_cost_filter.bat批处理脚本，筛选整体消耗大于阈值的素材：
-
+### 素材潜力预测系统+上传
 ```
 cd FangXieZhiLian
-run_cost_filter.bat
-```
-
-### 素材潜力预测系统
-
-运行根目录下的start_prediction_system.bat批处理脚本，启动素材潜力预测系统：
-
-```
-cd FangXieZhiLian
-start_prediction_system.bat
+run_all.bat
 ```
 
 ### 单个视频分析
