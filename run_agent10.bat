@@ -1,5 +1,9 @@
 @echo off
-echo 正在启动抖音素材分析系统...
+echo 正在启动抖音素材ID分析系统...
+echo.
+echo 此程序将根据data目录下的素材ID.json文件中的素材ID，
+echo 在json\素材数据分析\merged_material_data.json中查找对应的素材名称，
+echo 然后根据这些素材名称分析对应的视频。
 echo.
 
 REM 设置Python路径，如果Python已在环境变量中，可以直接使用python命令
@@ -14,7 +18,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 REM 运行agent10分析程序
-echo 正在运行视频分析...
+echo 正在根据素材ID分析视频...
 %PYTHON_CMD% agents/run_agent10.py
 
 echo.

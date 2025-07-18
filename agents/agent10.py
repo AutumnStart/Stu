@@ -10,7 +10,7 @@ import pandas as pd
 
 # --- 基本配置 ---
 API_KEY = "AIzaSyDxnQNBD0dtIKtZHpubgv_ZSw7AG_7tYCU"
-MODEL_NAME = "models/gemini-2.5-flash-preview-04-17"
+MODEL_NAME = "models/gemini-2.0-flash"
 
 # --- 文件路径配置 ---
 PRODUCT_JSON_PATH = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json\Product.json"
@@ -18,6 +18,150 @@ MERGED_MATERIAL_DATA_PATH = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json\素�
 VIDEO_FILE_PATH = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\storage\video\留香珠\0605-留香珠-促销-【砍一刀】01-zyjd.mp4"
 # 批量处理的视频目录配置
 BATCH_VIDEO_DIR = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\storage\video\留香珠"
+
+# --- 新增函数：从data目录获取素材ID并查找对应素材名称 ---
+def get_material_names_from_ids():
+    """
+    从data目录获取素材ID，然后在merged_material_data.json中查找对应的素材名称
+    
+    Returns:
+        dict: 素材ID到素材名称的映射字典
+    """
+    # 获取当前脚本所在目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 获取项目根目录
+    root_dir = os.path.dirname(current_dir)
+    # 数据目录
+    data_dir = os.path.join(root_dir, 'data')
+    # 素材ID文件路径
+    material_ids_file = os.path.join(data_dir, '素材ID.json')
+    
+    print(f"查找素材ID文件: {material_ids_file}")
+    
+    # 检查素材ID文件是否存在
+    if not os.path.exists(material_ids_file):
+        print(f"错误: 素材ID文件不存在: {material_ids_file}")
+        return {}
+    
+    # 读取素材ID文件
+    try:
+        with open(material_ids_file, 'r', encoding='utf-8') as f:
+            material_ids_data = json.load(f)
+        
+        material_ids = material_ids_data.get("素材ID列表", [])
+        if not material_ids:
+            print("警告: 素材ID文件中未找到素材ID列表或列表为空")
+            return {}
+        
+        print(f"从素材ID文件中找到 {len(material_ids)} 个素材ID")
+    except Exception as e:
+        print(f"读取素材ID文件失败: {e}")
+        return {}
+    
+    # 检查合并素材数据文件是否存在
+    if not os.path.exists(MERGED_MATERIAL_DATA_PATH):
+        print(f"错误: 合并素材数据文件不存在: {MERGED_MATERIAL_DATA_PATH}")
+        return {}
+    
+    # 读取合并素材数据文件
+    try:
+        with open(MERGED_MATERIAL_DATA_PATH, 'r', encoding='utf-8') as f:
+            merged_material_data = json.load(f)
+        
+        print(f"成功读取合并素材数据文件，包含 {len(merged_material_data)} 条素材数据")
+    except Exception as e:
+        print(f"读取合并素材数据文件失败: {e}")
+        return {}
+    
+    # 创建素材ID到素材名称的映射
+    material_id_to_name = {}
+    found_count = 0
+    
+    # 遍历素材ID列表，查找对应的素材名称
+    for material_id in material_ids:
+        material_id_str = str(material_id)
+        found = False
+        
+        # 在合并数据中查找对应的素材ID
+        for material_data in merged_material_data:
+            if str(material_data.get("素材ID", "")) == material_id_str:
+                material_name = material_data.get("素材名称", "")
+                if material_name:
+                    material_id_to_name[material_id_str] = material_name
+                    found = True
+                    found_count += 1
+                    print(f"找到素材ID {material_id_str} 对应的素材名称: {material_name}")
+                break
+        
+        if not found:
+            print(f"警告: 未找到素材ID {material_id_str} 对应的素材名称")
+    
+    print(f"总共找到 {found_count}/{len(material_ids)} 个素材ID对应的素材名称")
+    return material_id_to_name
+
+def analyze_videos_by_material_ids():
+    """
+    根据data目录中的素材ID查找对应的素材名称，然后分析对应的视频
+    """
+    print("开始根据素材ID分析视频...")
+    
+    # 获取素材ID到素材名称的映射
+    material_id_to_name = get_material_names_from_ids()
+    
+    if not material_id_to_name:
+        print("错误: 未找到任何素材ID对应的素材名称，无法进行视频分析")
+        return
+    
+    # 初始化Gemini客户端
+    try:
+        client = genai.Client(api_key=API_KEY)
+        print("Gemini客户端初始化成功")
+    except Exception as e:
+        print(f"Gemini客户端初始化失败: {e}")
+        return
+    
+    # 根据素材名称查找对应的视频文件
+    for material_id, material_name in material_id_to_name.items():
+        print(f"\n{'='*50}")
+        print(f"处理素材ID: {material_id}, 素材名称: {material_name}")
+        
+        # 在视频目录中查找匹配的视频文件
+        video_files = []
+        if os.path.exists(BATCH_VIDEO_DIR):
+            for file in os.listdir(BATCH_VIDEO_DIR):
+                if file.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv')):
+                    # 检查视频文件名是否包含素材名称
+                    if material_name in file:
+                        video_files.append(os.path.join(BATCH_VIDEO_DIR, file))
+        
+        if not video_files:
+            print(f"警告: 未找到素材名称 '{material_name}' 对应的视频文件")
+            continue
+        
+        print(f"找到 {len(video_files)} 个匹配的视频文件:")
+        for i, video_file in enumerate(video_files, 1):
+            print(f"  {i}. {os.path.basename(video_file)}")
+        
+        # 对每个匹配的视频文件进行分析
+        for video_file in video_files:
+            print(f"\n分析视频: {os.path.basename(video_file)}")
+            
+            try:
+                # 使用现有的分析函数进行视频分析
+                analysis_result = analyze_material_by_video_path(
+                    video_file_path=video_file,
+                    client=client
+                )
+                
+                if "error" not in analysis_result:
+                    print(f"视频分析成功: {video_file}")
+                else:
+                    print(f"视频分析失败: {video_file}, 错误: {analysis_result['error']}")
+            except Exception as e:
+                print(f"视频分析过程中发生错误: {e}")
+                traceback.print_exc()
+    
+    print("\n所有视频分析完成")
 
 def fix_json_format(text):
     """修复常见的JSON格式问题"""
@@ -894,7 +1038,7 @@ def extract_folder_name_from_path(path):
         print(f"提取文件夹名称失败: {e}")
         return "default"
 
-def batch_analyze_videos(video_directory, client):
+
     """
     批量分析指定目录下的所有视频文件
     
@@ -1182,8 +1326,6 @@ def test_module(test_type="basic"):
     # 根据测试类型执行不同的测试
     if test_type == "single":
         _test_single_video_analysis()
-    elif test_type == "batch":
-        _test_batch_analysis()
     elif test_type == "json":
         _test_json_processing()
     else:
@@ -1213,60 +1355,7 @@ def _test_single_video_analysis():
         print(f"✗ 测试过程中发生错误: {e}")
         traceback.print_exc()
 
-def _test_batch_analysis():
-    """测试批量视频分析"""
-    # 检查视频目录是否存在
-    if not os.path.exists(BATCH_VIDEO_DIR):
-        print(f"✗ 批量视频目录不存在: {BATCH_VIDEO_DIR}")
-        return
-    
-    # 检查目录中是否有视频文件
-    video_files = [f for f in os.listdir(BATCH_VIDEO_DIR) 
-                  if f.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv'))]
-    
-    if not video_files:
-        print(f"✗ 批量视频目录中没有视频文件: {BATCH_VIDEO_DIR}")
-        return
-    
-    # 限制批量测试的文件数量
-    max_files = 3
-    if len(video_files) > max_files:
-        print(f"\n⚠️ 为减少API调用，测试将只分析前 {max_files} 个视频文件")
-        temp_dir = os.path.join(os.path.dirname(BATCH_VIDEO_DIR), "temp_test_batch")
-        os.makedirs(temp_dir, exist_ok=True)
-        
-        # 复制前几个文件到临时目录
-        for i, file in enumerate(video_files[:max_files]):
-            src = os.path.join(BATCH_VIDEO_DIR, file)
-            dst = os.path.join(temp_dir, file)
-            import shutil
-            shutil.copy2(src, dst)
-        
-        batch_dir = temp_dir
-    else:
-        batch_dir = BATCH_VIDEO_DIR
-    
-    try:
-        # 初始化Gemini客户端
-        client = genai.Client(api_key=API_KEY)
-        
-        # 批量分析视频
-        batch_analyze_videos(
-            video_directory=batch_dir,
-            client=client
-        )
-        
-    except Exception as e:
-        print(f"✗ 测试过程中发生错误: {e}")
-        traceback.print_exc()
-    
-    # 清理临时目录
-    if 'temp_dir' in locals():
-        try:
-            import shutil
-            shutil.rmtree(temp_dir)
-        except Exception as e:
-            print(f"⚠️ 未能清理临时测试目录: {temp_dir}, 错误: {e}")
+
 
 def _test_json_processing():
     """测试JSON处理功能"""
@@ -1317,5 +1406,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         test_type = sys.argv[1].lower()
     
-    # 运行测试
-    test_module(test_type) 
+    if test_type == "material_ids":
+        # 根据素材ID分析视频
+        analyze_videos_by_material_ids()
+    else:
+        # 运行测试
+        test_module(test_type) 
