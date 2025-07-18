@@ -77,7 +77,9 @@ merge_data.bat
 5. 合并素材数据和峰值分析结果
 
 
-### 素材潜力预测系统+上传
+### 素材潜力预测系统+自动上传
+
+### 结果查看：https://x1zbu25b72k.feishu.cn/base/CJvAbVltnaITVKsfdqFcQYQ7nwf?table=tbls20qCGDuPDHZK&view=vewzzXMCVT#CategorySuggested
 ```
 cd FangXieZhiLian
 run_all.bat
