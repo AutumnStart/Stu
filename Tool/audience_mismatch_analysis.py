@@ -346,7 +346,7 @@ class AudienceMismatchAnalysis:
         return output_file
 
 def main(material_folder=None):
-    screenshots_dir = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\screenshots"
+    screenshots_dir = r"./screenshots"
     
     # 如果指定了材料文件夹，则只分析该文件夹
     if material_folder:

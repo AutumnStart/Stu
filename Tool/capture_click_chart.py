@@ -105,33 +105,7 @@ def search_and_capture_material(page, material_id, output_dir):
         # 4.2 截取整体流失数曲线图 - 使用精确选择器
         loss_chart_path = capture_loss_chart(page, output_dir, f"整体流失数_{timestamp}")
         
-        # 复制图片到BYDHG目录
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        root_dir = script_dir
-        while not os.path.exists(os.path.join(root_dir, 'storage')) and os.path.dirname(root_dir) != root_dir:
-            root_dir = os.path.dirname(root_dir)
-        if not os.path.exists(os.path.join(root_dir, 'storage')):
-            root_dir = os.path.abspath(os.path.join(script_dir, '..', '..'))
-        
-        bydhg_dir = os.path.join(root_dir, 'storage', 'image', 'BYDHG')
-        bydhg_material_dir = os.path.join(bydhg_dir, f"Material_{material_id}")
-        
-        # 确保目标目录存在
-        os.makedirs(bydhg_material_dir, exist_ok=True)
-        
-        # 复制整体点击次数图表
-        if click_chart_path and os.path.exists(click_chart_path):
-            click_chart_filename = os.path.basename(click_chart_path)
-            bydhg_click_path = os.path.join(bydhg_material_dir, click_chart_filename)
-            shutil.copy2(click_chart_path, bydhg_click_path)
-            print(f"已复制整体点击次数图表到BYDHG: {bydhg_click_path}")
-        
-        # 复制整体流失数图表
-        if loss_chart_path and os.path.exists(loss_chart_path):
-            loss_chart_filename = os.path.basename(loss_chart_path)
-            bydhg_loss_path = os.path.join(bydhg_material_dir, loss_chart_filename)
-            shutil.copy2(loss_chart_path, bydhg_loss_path)
-            print(f"已复制整体流失数图表到BYDHG: {bydhg_loss_path}")
+
         
         # 4.3 截取八大人群分布人数图表
         # 先切换到人群分析
@@ -145,13 +119,13 @@ def search_and_capture_material(page, material_id, output_dir):
             # 精确查找 class 为 'ovui-input__prefix' 且包含文本 '展示指标：' 的 div
             page.locator("div.ovui-input__prefix:has-text('展示指标：')").click()
             page.locator("div.ovui-cascader-panel__item-label:has-text('整体成交金额')").click()
-            print(1)
+
             time.sleep(5)  # 等待页面切换
             
             capture_population_chart(page, output_dir, f"八大人群分布人数整体成交金额_{timestamp}")
             page.locator("div.ovui-input__prefix:has-text('展示指标：')").click()
             page.locator("div.ovui-cascader-panel__item-label:has-text('整体点击次数')").click()
-            print(2)
+
             time.sleep(5)  # 等待页面切换
             capture_population_chart(page, output_dir, f"八大人群分布人数整体点击次数_{timestamp}")
         except Exception as e:
@@ -393,15 +367,19 @@ def main():
             page.get_by_role("textbox", name="密码").fill("Soulink-88818")
             page.locator("use").nth(1).click()
             page.get_by_role("button", name="登录").click()
-            
+            print(1)
             # 等待登录成功
             page.wait_for_load_state("networkidle")
+            print(2)
             print("登录成功!")
+            
+            time.sleep(3)
             
             # 打开智联页面
             with page.expect_popup() as page1_info:
                 page.get_by_text("智联（卓尔01）-PWU-留香珠").click()
             page1 = page1_info.value
+            
             
             # 处理弹窗
             # print("处理可能的弹窗...")

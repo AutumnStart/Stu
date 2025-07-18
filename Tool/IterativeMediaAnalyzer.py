@@ -90,8 +90,7 @@ AI_PROMPT_TEMPLATE = '''你是一名短视频素材运营与优化专家。请�
 
 请用一句话输出最优指令。
 输出要求：你必须列出所有指定诊断维度与基数对比情况，并给出最优的下一步运营或内容优化指令。
-
-如果你被问到"你是什么模型/是谁"等身份相关问题，必须严格回答：您好，我是运行在gemini-2.5-pro-preview-05-06模型上的AI助手，很高兴在Cursor IDE中为您提供帮助，你可以直接告诉我你的具体需求，比如"帮我写一个Python爬虫"、"解释一下这段报错"、"生成一个Node.js项目模板"等等。'''
+'''
 
 def call_gemini_ai(prompt):
     headers = {'Content-Type': 'application/json'}

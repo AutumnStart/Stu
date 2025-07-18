@@ -5,7 +5,7 @@ import random
 import time
 import traceback
 import re
-import google.generativeai as genai
+from google import genai
 import pandas as pd
 
 # --- 基本配置 ---
@@ -13,11 +13,11 @@ API_KEY = "AIzaSyDxnQNBD0dtIKtZHpubgv_ZSw7AG_7tYCU"
 MODEL_NAME = "models/gemini-2.0-flash"
 
 # --- 文件路径配置 ---
-PRODUCT_JSON_PATH = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json\Product.json"
-MERGED_MATERIAL_DATA_PATH = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json\素材数据分析\merged_material_data.json"  # 合并后的素材数据路径
-VIDEO_FILE_PATH = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\storage\video\留香珠\0605-留香珠-促销-【砍一刀】01-zyjd.mp4"
+PRODUCT_JSON_PATH = r"./json/Product.json"
+MERGED_MATERIAL_DATA_PATH = r"./json/素材数据分析/merged_material_data.json"  # 合并后的素材数据路径
+VIDEO_FILE_PATH = r"./storage/video/留香珠/0605-留香珠-促销-【砍一刀】01-zyjd.mp4"
 # 批量处理的视频目录配置
-BATCH_VIDEO_DIR = r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\storage\video\留香珠"
+BATCH_VIDEO_DIR = r"./storage/video/留香珠"
 
 # --- 新增函数：从data目录获取素材ID并查找对应素材名称 ---
 def get_material_names_from_ids():
@@ -727,11 +727,6 @@ def generate_material_analysis_report(client, model_name, video_file_path, mater
         # 上传视频文件（带重试机制）
         video_file_response = upload_video_with_retry(client, video_file_path, max_retries=3)
         
-        # 增加健壮性：检查上传是否成功
-        if not video_file_response:
-            print("视频上传失败，无法继续分析。")
-            return {"error": "视频上传失败，已达到最大重试次数"}
-        
         # 等待视频处理完成
         video_file_status = client.files.get(name=video_file_response.name)
         while video_file_status.state.name == "PROCESSING":
@@ -876,7 +871,7 @@ def generate_material_analysis_report(client, model_name, video_file_path, mater
         traceback.print_exc()
         return {"error": f"分析失败: {str(e)}"}
 
-def save_analysis_report(analysis_result, material_name, output_dir=r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json"):
+def save_analysis_report(analysis_result, material_name, output_dir="./json"):
     """保存分析报告到文件"""
     try:
         # 确保输出目录存在
@@ -945,7 +940,7 @@ def upload_video_with_retry(client, video_file_path, max_retries=3):
                 time.sleep(wait_time)
             else:
                 print("所有上传尝试都失败了")
-                return None
+                raise e 
 
 def analyze_material_by_video_path(video_file_path, client=None):
     """
@@ -974,7 +969,7 @@ def analyze_material_by_video_path(video_file_path, client=None):
     
     # 从BATCH_VIDEO_DIR中提取文件夹名称，用于输出路径
     output_subdir = extract_folder_name_from_path(BATCH_VIDEO_DIR)
-    output_dir = os.path.join(r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json", output_subdir)
+    output_dir = os.path.join(r"./json", output_subdir)
     
     print(f"开始分析素材:")
     print(f"  视频文件: {video_file_path}")
@@ -1039,145 +1034,7 @@ def extract_folder_name_from_path(path):
         return "default"
 
 
-    """
-    批量分析指定目录下的所有视频文件
-    
-    Args:
-        video_directory: 视频文件目录
-        client: Gemini客户端
-    
-    Returns:
-        dict: 分析结果统计信息
-    """
-    import time
-    import random
-    
-    print(f"\n=== 开始批量分析视频文件 ===")
-    print(f"视频目录: {video_directory}")
-    
-    # 从视频目录提取子目录名，用于输出路径
-    output_subdir = extract_folder_name_from_path(video_directory)
-    default_output_dir = os.path.join(r"C:\Users\EDY\Desktop\wwj\FangXieZhiLian\json", output_subdir)
-    
-    # 确保输出目录存在
-    os.makedirs(default_output_dir, exist_ok=True)
-    print(f"输出目录: {default_output_dir}")
-    
-    # 获取所有视频文件
-    video_files = []
-    if os.path.exists(video_directory):
-        for file in os.listdir(video_directory):
-            if file.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv')):
-                video_files.append(os.path.join(video_directory, file))
-    else:
-        print(f"错误: 视频目录不存在: {video_directory}")
-        return {"error": "视频目录不存在"}
-    
-    if not video_files:
-        print("错误: 指定目录下没有找到视频文件")
-        return {"error": "没有找到视频文件"}
-    
-    print(f"找到 {len(video_files)} 个视频文件:")
-    for i, video_file in enumerate(video_files, 1):
-        print(f"  {i}. {os.path.basename(video_file)}")
-    
-    # 分析结果统计
-    analysis_results = []
-    successful_analyses = []
-    partial_analyses = []  # 部分成功的分析（有错误但有部分数据）
-    failed_analyses = []
-    
-    # 逐个分析视频
-    for i, video_file_path in enumerate(video_files, 1):
-        print(f"\n{'='*50}")
-        print(f"分析进度: {i}/{len(video_files)} ({i/len(video_files)*100:.1f}%)")
-        print(f"当前视频: {os.path.basename(video_file_path)}")
-        print(f"{'='*50}")
-        
-        # 从视频文件路径提取素材名称
-        material_name = extract_material_name_from_video_path(video_file_path)
-        if not material_name:
-            print(f"无法提取素材名称，跳过: {video_file_path}")
-            failed_analyses.append({
-                "video_file": video_file_path,
-                "error": "无法提取素材名称"
-            })
-            continue
-        
-        print(f"素材名称: {material_name}")
-        
-        # 检查是否已存在分析报告
-        safe_material_name = re.sub(r'[<>:"/\\|?*]', '_', material_name)
-        output_file = os.path.join(default_output_dir, f"素材分析报告_{safe_material_name}.json")
-        error_output_file = os.path.join(default_output_dir, f"素材分析报告_{safe_material_name}_ERROR.json")
-        
-        # 处理已存在的报告
-        if os.path.exists(output_file) or os.path.exists(error_output_file):
-            result = handle_existing_report(video_file_path, material_name, output_file, error_output_file, 
-                                           successful_analyses, partial_analyses, analysis_results)
-            if result:  # 如果处理了已存在的报告，继续下一个视频
-                continue
-        
-        try:
-            # 在分析前添加延迟，避免API过载
-            if i > 1:  # 第一个视频不需要延迟
-                delay = random.uniform(15, 25)  # 15-25秒随机延迟
-                print(f"等待 {delay:.1f} 秒以避免API过载...")
-                time.sleep(delay)
-            
-            # 调用单个视频分析函数，会自动保存结果到指定目录
-            analysis_result = analyze_material_by_video_path(
-                video_file_path=video_file_path,
-                client=client
-            )
-            
-            # 处理分析结果
-            handle_analysis_result(analysis_result, video_file_path, material_name, default_output_dir,
-                                  successful_analyses, partial_analyses, failed_analyses, analysis_results)
-            
-            # 处理API过载错误，添加额外延迟
-            if "error" in analysis_result and ("overloaded" in str(analysis_result.get('error', "")).lower() 
-                                             or "503" in str(analysis_result.get('error', ""))):
-                extra_delay = random.uniform(30, 60)
-                print(f"检测到API过载，额外等待 {extra_delay:.1f} 秒...")
-                time.sleep(extra_delay)
-                
-        except KeyboardInterrupt:
-            print(f"\n⚠️  用户中断了批量分析过程")
-            print(f"已完成 {len(successful_analyses)} 个视频的分析")
-            print(f"可以重新运行程序继续分析剩余视频（程序会自动跳过已分析的视频）")
-            break
-            
-        except Exception as e:
-            print(f"❌ 处理视频时发生错误: {e}")
-            traceback.print_exc()
-            failed_analyses.append({
-                "video_file": video_file_path,
-                "error": f"处理异常: {str(e)}"
-            })
-            
-            # 在出现异常后也添加延迟
-            delay = random.uniform(10, 20)
-            print(f"异常后等待 {delay:.1f} 秒继续处理...")
-            time.sleep(delay)
-        
-        # 定期输出进度信息
-        if i % 3 == 0 or i == len(video_files):
-            print_progress_stats(i, video_files, successful_analyses, partial_analyses, failed_analyses)
-    
-    # 打印最终统计结果
-    print_final_stats(video_files, successful_analyses, partial_analyses, failed_analyses)
-    
-    return {
-        "total_count": len(video_files),
-        "success_count": len(successful_analyses),
-        "partial_count": len(partial_analyses),
-        "failed_count": len(failed_analyses),
-        "successful_analyses": successful_analyses,
-        "partial_analyses": partial_analyses,
-        "failed_analyses": failed_analyses,
-        "analysis_results": analysis_results
-    }
+
 
 def handle_existing_report(video_file_path, material_name, output_file, error_output_file, 
                           successful_analyses, partial_analyses, analysis_results):
@@ -1411,4 +1268,4 @@ if __name__ == "__main__":
         analyze_videos_by_material_ids()
     else:
         # 运行测试
-        test_module(test_type) 
+        test_module(test_type)
