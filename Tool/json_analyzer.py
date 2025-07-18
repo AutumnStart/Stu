@@ -26,13 +26,14 @@ def log_message(message, file=None):
         file.flush()  # 立即写入文件
 
 
-def flatten_json(data, delimiter='.'):
+def flatten_json(data, delimiter='.', remove_index=False):
     """
     将嵌套的JSON结构扁平化为一个字典
     
     参数:
         data: JSON数据
         delimiter: 连接键名时使用的字符
+        remove_index: 是否移除所有列表索引标记
         
     返回:
         扁平化的字典
@@ -42,10 +43,15 @@ def flatten_json(data, delimiter='.'):
     def _flatten(x, prefix=""):
         if isinstance(x, dict):
             for key, value in x.items():
-                _flatten(value, f"{prefix}{key}{delimiter}" if prefix else f"{key}{delimiter}")
+                new_prefix = f"{prefix}{key}{delimiter}" if prefix else f"{key}{delimiter}"
+                _flatten(value, new_prefix)
         elif isinstance(x, list):
             for i, item in enumerate(x):
-                _flatten(item, f"{prefix}[{i}]{delimiter}")
+                if remove_index:
+                    new_prefix = prefix
+                else:
+                    new_prefix = f"{prefix}[{i}]{delimiter}"
+                _flatten(item, new_prefix)
         else:
             # 移除尾部的分隔符
             key = prefix[:-len(delimiter)] if prefix.endswith(delimiter) else prefix
@@ -64,8 +70,8 @@ def save_to_excel(data, filename="analysis_report.xlsx", log_file=None):
         filename: 输出Excel文件名
         log_file: 日志文件对象
     """
-    # 扁平化JSON结构
-    flattened_data = flatten_json(data)
+    # 扁平化JSON结构，移除所有索引标记
+    flattened_data = flatten_json(data, remove_index=True)
     
     # 计算总字段数
     total_fields = len(flattened_data)
@@ -186,4 +192,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
