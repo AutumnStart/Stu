@@ -1,0 +1,6 @@
+{
+    "app_id": "飞书应用的App ID",
+    "app_secret": "飞书应用的App Secret",
+    "bitable_app_token": "已存在的多维表格应用Token，形如 bascnCMr2Jd5O1TjHRrylXW8Jkc",
+    "table_id": "已存在的多维表格的表格ID，形如 tblKz5D60r8GJHii"
+} 

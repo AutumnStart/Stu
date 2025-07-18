@@ -547,7 +547,7 @@ def filter_potential_materials(input_file, output_prefix="有潜力素材数据"
         print(f"🔮 筛选结果 - 共 {len(filtered_df)} 条记录")
         
         # 按照潜力评分降序排序
-        filtered_df = filtered_df.sort_values(by='潜力评分', ascending=False)
+        filtered_df = filtered_df.sort_values(by='潜力评分', ascending=False) # type: ignore
         
         # 统计各类建议操作数量
         operations = filtered_df['建议操作'].value_counts()
@@ -767,12 +767,12 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
             total_rows = matched_df[matched_df['日期'] == '全部'].copy()
             
             if len(total_rows) > 0:
-                print(f"✅ 匹配结果 - 找到 {len(total_rows)} 条匹配记录(日期='全部')，涉及 {total_rows['素材ID'].nunique()} 个素材")
+                print(f"✅ 匹配结果 - 找到 {len(total_rows)} 条匹配记录(日期='全部')，涉及 {total_rows['素材ID'].nunique()} 个素材") # type: ignore
                 matched_df = total_rows
             else:
                 print("⚠️ 未找到日期为'全部'的记录，将使用所有匹配记录")
         
-        print(f"📊 最终匹配结果 - {len(matched_df)} 条记录，涉及 {matched_df['素材ID'].nunique()} 个素材")
+        print(f"📊 最终匹配结果 - {len(matched_df)} 条记录，涉及 {matched_df['素材ID'].nunique()} 个素材") # type: ignore
         
         # 检查是否有内容相同的表格已存在
         is_duplicate, existing_file = check_duplicate_content(matched_df, output_path, output_prefix)
@@ -793,7 +793,7 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
             excel_output_file = os.path.join(output_path, excel_output_file)
             
         # 确保素材ID以文本格式保存，避免科学计数法
-        if '素材ID' in matched_df.columns:
+        if '素材ID' in matched_df.columns: # type: ignore
             # 创建Excel写入器
             try:
                 import xlsxwriter
@@ -802,7 +802,7 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
                 # 创建Excel写入器
                 with pd.ExcelWriter(excel_output_file, engine='xlsxwriter') as writer:
                     # 将数据写入Excel
-                    matched_df.to_excel(writer, sheet_name='筛选完成数据', index=False)
+                    matched_df.to_excel(writer, sheet_name='筛选完成数据', index=False) # type: ignore
                     
                     # 获取xlsxwriter工作簿和工作表对象
                     workbook = writer.book
@@ -812,15 +812,15 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
                     text_format = workbook.add_format({'num_format': '@'})
                     
                     # 找到素材ID列的索引
-                    id_col_idx = matched_df.columns.get_loc('素材ID')
+                    id_col_idx = matched_df.columns.get_loc('素材ID') # type: ignore
                     
                     # 将素材ID列设置为文本格式
                     worksheet.set_column(id_col_idx, id_col_idx, 20, text_format)
                     
                     # 如果有创建时间列，设置日期格式
-                    if '创建时间' in matched_df.columns:
+                    if '创建时间' in matched_df.columns: # type: ignore
                         date_format = workbook.add_format({'num_format': 'yyyy-mm-dd hh:mm:ss'})
-                        date_col_idx = matched_df.columns.get_loc('创建时间')
+                        date_col_idx = matched_df.columns.get_loc('创建时间') # type: ignore
                         worksheet.set_column(date_col_idx, date_col_idx, 20, date_format)
                 
                 print(f"\n✅ 最终结果已保存为Excel: {excel_output_file}")
@@ -830,7 +830,7 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
                 print("⚠️ xlsxwriter未安装，尝试使用备用方法...")
                 
                 # 备用方法：将素材ID添加单引号前缀
-                matched_df['素材ID'] = matched_df['素材ID'].apply(lambda x: f"'{x}")
+                matched_df['素材ID'] = matched_df['素材ID'].apply(lambda x: f"'{x}") # type: ignore
                 
                 # 保存为CSV
                 csv_output_file = f"{output_prefix}_{timestamp}.csv"
@@ -839,7 +839,7 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
                 if output_path:
                     csv_output_file = os.path.join(output_path, csv_output_file)
                     
-                matched_df.to_csv(csv_output_file, index=False, encoding='utf-8-sig')
+                matched_df.to_csv(csv_output_file, index=False, encoding='utf-8-sig') # type: ignore
                 
                 print(f"\n✅ 最终结果已保存为CSV: {csv_output_file}")
                 print(f"   - 素材ID已添加单引号前缀，在Excel中应显示为文本格式")
@@ -854,7 +854,7 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
             if output_path:
                 csv_output_file = os.path.join(output_path, csv_output_file)
                 
-            matched_df.to_csv(csv_output_file, index=False, encoding='utf-8-sig')
+            matched_df.to_csv(csv_output_file, index=False, encoding='utf-8-sig') # type: ignore
             
             print(f"\n✅ 最终结果已保存为CSV: {csv_output_file}")
             
@@ -945,11 +945,21 @@ def main():
     parser.add_argument("--model-path", default="", help="模型路径，留空使用预训练模型")
     args = parser.parse_args()
     
+    # --- 路径修正 ---
+    # 获取脚本所在目录，并构造回到项目根目录的绝对路径
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(script_dir, '..')
+
+    # 将所有相对路径参数转换为基于项目根目录的绝对路径
+    output_dir_abs = os.path.join(base_dir, args.output_dir)
+    history_file_abs = os.path.join(base_dir, args.history_file)
+    
     # 自动扫描form文件夹获取最新数据文件
     data_file = args.source_file
     if not data_file:
         print("📂 未指定数据文件，自动扫描form文件夹...")
-        data_files = glob.glob("form/*.xlsx")
+        form_dir_abs = os.path.join(base_dir, "form")
+        data_files = glob.glob(os.path.join(form_dir_abs, "*.xlsx"))
         
         if not data_files:
             print("❌ form文件夹中未找到Excel文件！")
@@ -967,9 +977,12 @@ def main():
         data_files.sort(key=extract_date, reverse=True)
         data_file = data_files[0]
         print(f"✅ 自动选择最新数据文件: {data_file}")
-    
+    elif not os.path.isabs(data_file):
+        # 如果用户提供了相对路径，也假定它是相对于项目根目录的
+        data_file = os.path.join(base_dir, data_file)
+
     # 加载历史记录
-    history = load_processed_history(args.history_file)
+    history = load_processed_history(history_file_abs)
     print(f"✅ 已加载素材历史记录 - 包含 {len(history.get('processed_ids', []))} 个已处理素材")
     
     print("=" * 60)
@@ -990,7 +1003,12 @@ def main():
     
     # 读取Excel文件
     try:
-        df = pd.read_excel(data_file)
+        # 定义可能的素材ID列名
+        possible_id_cols = ['素材ID', '素材id', 'material_id', '视频ID']
+        # 使用converters确保ID列被当作字符串读取，避免精度丢失
+        converters = {col: str for col in possible_id_cols}
+        
+        df = pd.read_excel(data_file, converters=converters)
         print(f"✅ 成功读取数据 - 共 {len(df)} 条记录")
     except Exception as e:
         print(f"❌ 读取数据时出错: {e}")
@@ -1010,7 +1028,7 @@ def main():
             # 筛选出未处理过的素材
             original_count = len(df)
             skipped_ids = [id for id in df['素材ID'] if id in processed_ids]
-            df = df[~df['素材ID'].isin(processed_ids)]
+            df = df[~df['素材ID'].isin(list(processed_ids))]
             
             # 记录本次新处理的素材ID
             newly_processed_ids = df['素材ID'].tolist()
@@ -1047,21 +1065,20 @@ def main():
     predictions_df = system.predict_potential(features_df)
     
     # 生成报告，保存到指定目录
-    output_dir = args.output_dir  # 使用指定的输出目录
-    report_file, details_file = system.generate_report(predictions_df, features_df, output_dir)
+    report_file, details_file = system.generate_report(predictions_df, features_df, output_dir_abs)
     
     # 筛选除"建议删除"外的所有素材数据，保存到临时目录
-    potential_file = filter_potential_materials(details_file, "有潜力素材数据", os.path.join(output_dir, "temp"))
+    potential_file = filter_potential_materials(details_file, "有潜力素材数据", os.path.join(output_dir_abs, "temp"))
     
     # 新增功能: 从有潜力素材数据提取素材ID，与原始数据源精确匹配
     matched_file = None
     if potential_file:
-        matched_file = match_with_source_data(potential_file, data_file, args.output_prefix, output_dir)
+        matched_file = match_with_source_data(potential_file, data_file, args.output_prefix, output_dir_abs)
     
     # 更新历史记录，添加此次处理的素材ID
     if not args.no_dedup and newly_processed_ids:
         history["processed_ids"] = list(set(history.get("processed_ids", []) + newly_processed_ids))
-        save_processed_history(history, args.history_file)
+        save_processed_history(history, history_file_abs)
     
     print("\n" + "=" * 60)
     print("🎉 分析完成！")
@@ -1095,7 +1112,7 @@ def main():
         print("\n📁 没有生成筛选完成数据")
         
     # 清理临时文件
-    temp_dir = os.path.join(output_dir, "temp")
+    temp_dir = os.path.join(output_dir_abs, "temp")
     if os.path.exists(temp_dir):
         try:
             import shutil

@@ -1,0 +1,16 @@
+{
+    "profiles": {
+        "high_cost_report": {
+            "app_id": "cli_a8e9302bc03f900d",
+            "app_secret": "XcBkimaEJmClUIratNHpnfPpWSGMgYHv",
+            "base_app_token": "CJvAbVltnaITVKsfdqFcQYQ7nwf",
+            "table_id": "tbls20qCGDuPDHZK"
+        },
+        "another_function_placeholder": {
+            "app_id": "cli_a8e9302bc03f900d",
+            "app_secret": "XcBkimaEJmClUIratNHpnfPpWSGMgYHv",
+            "base_app_token": "CJvAbVltnaITVKsfdqFcQYQ7nwf",
+            "table_id": "tblmNpHTVxTu5abC"
+        }
+    }
+}

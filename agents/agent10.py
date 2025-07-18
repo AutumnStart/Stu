@@ -5,7 +5,7 @@ import random
 import time
 import traceback
 import re
-from google import genai
+import google.generativeai as genai
 import pandas as pd
 
 # --- 基本配置 ---
@@ -727,6 +727,11 @@ def generate_material_analysis_report(client, model_name, video_file_path, mater
         # 上传视频文件（带重试机制）
         video_file_response = upload_video_with_retry(client, video_file_path, max_retries=3)
         
+        # 增加健壮性：检查上传是否成功
+        if not video_file_response:
+            print("视频上传失败，无法继续分析。")
+            return {"error": "视频上传失败，已达到最大重试次数"}
+        
         # 等待视频处理完成
         video_file_status = client.files.get(name=video_file_response.name)
         while video_file_status.state.name == "PROCESSING":
@@ -940,7 +945,7 @@ def upload_video_with_retry(client, video_file_path, max_retries=3):
                 time.sleep(wait_time)
             else:
                 print("所有上传尝试都失败了")
-                raise e 
+                return None
 
 def analyze_material_by_video_path(video_file_path, client=None):
     """
