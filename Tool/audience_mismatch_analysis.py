@@ -37,6 +37,19 @@ class AudienceMismatchAnalysis:
         # 验证Gemini API配置
         if not API_KEY or not API_URL:
             raise ValueError("必须提供有效的Gemini API密钥和URL")
+    
+    def get_mime_type(self, file_path):
+        """根据文件扩展名获取正确的MIME类型"""
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_types = {
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.bmp': 'image/bmp',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp'
+        }
+        return mime_types.get(ext, 'image/jpeg')  # 默认使用jpeg
         
     def extract_data_from_image(self, img_path):
         """
@@ -74,6 +87,9 @@ class AudienceMismatchAnalysis:
             示例输出：{"年轻人": 35.2, "中年人": 42.1, "老年人": 22.7}
             """
             
+            # 获取正确的MIME类型
+            mime_type = self.get_mime_type(img_path)
+            
             # 构建请求体
             request_body = {
                 "contents": [
@@ -82,7 +98,7 @@ class AudienceMismatchAnalysis:
                             {"text": prompt},
                             {
                                 "inlineData": {
-                                    "mimeType": "image/jpeg",
+                                    "mimeType": mime_type,
                                     "data": img_base64
                                 }
                             }

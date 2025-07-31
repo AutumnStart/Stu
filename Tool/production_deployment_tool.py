@@ -55,7 +55,7 @@ class MaterialPredictionSystem:
     
     def __init__(self, model_path=""):
         self.model = None
-        self.threshold = 0.3253  # 科学确定的最优阈值
+        self.threshold = 0.28  # 更宽松的阈值（放松后的阈值）
         self.required_columns = [
             '素材ID', '日期', '整体展现次数', '整体点击次数', '整体点击率',
             '整体转化率', '整体成交订单数', '整体成交金额', '整体消耗',
@@ -126,9 +126,22 @@ class MaterialPredictionSystem:
                         '整体支付ROI', '平均观看时长', '视频完播率', '2秒播放率', '3秒播放率',
                         '5秒播放率', '10秒播放率', '整体点击率', '整体转化率']
         
+        # 检查并移除没有数值的列
+        cols_to_remove = []
         for col in numeric_cols:
             if col in df.columns:
+                # 尝试转换为数值类型
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+                # 如果列全为空或无效，标记为移除
+                if df[col].isna().all() or (df[col] == 0).all():
+                    cols_to_remove.append(col)
+                    print(f"⚠️ 列 '{col}' 没有有效数值，将被移除")
+        
+        # 移除没有数值的列
+        for col in cols_to_remove:
+            if col in df.columns:
+                df = df.drop(columns=[col])
+                print(f"✅ 已移除空列: {col}")
         
         # 检查绝对必要字段
         essential_missing = []
@@ -244,19 +257,33 @@ class MaterialPredictionSystem:
             
             # 确保至少有一条记录
             if len(material_data) >= 1:
-                # 使用实际可用的天数，如果少于3天，就使用所有可用天数
-                days_to_use = min(3, len(material_data))
-                first_days = material_data.iloc[:days_to_use]
-                
-                features = {
-                    '素材ID': material_id,
-                    '投放天数': len(material_data),
-                    '前3天总消耗': first_days['整体消耗'].sum(),
-                    '前3天总展现': first_days['整体展现次数'].sum(),
-                    '前3天总点击': first_days['整体点击次数'].sum(),
-                    '前3天总订单': first_days['整体成交订单数'].sum(),
-                    '前3天总GMV': first_days['整体成交金额'].sum(),
-                }
+                # 如果只有一条记录，直接使用该记录的数据
+                if len(material_data) == 1:
+                    single_record = material_data.iloc[0]
+                    features = {
+                        '素材ID': material_id,
+                        '投放天数': 1,
+                        '前3天总消耗': single_record.get('整体消耗', 0),
+                        '前3天总展现': single_record.get('整体展现次数', 0),
+                        '前3天总点击': single_record.get('整体点击次数', 0),
+                        '前3天总订单': single_record.get('整体成交订单数', 0),
+                        '前3天总GMV': single_record.get('整体成交金额', 0),
+                    }
+                    print(f"✅ 素材ID {material_id} 使用单条记录数据")
+                else:
+                    # 使用实际可用的天数，如果少于3天，就使用所有可用天数
+                    days_to_use = min(3, len(material_data))
+                    first_days = material_data.iloc[:days_to_use]
+                    
+                    features = {
+                        '素材ID': material_id,
+                        '投放天数': len(material_data),
+                        '前3天总消耗': first_days['整体消耗'].sum(),
+                        '前3天总展现': first_days['整体展现次数'].sum(),
+                        '前3天总点击': first_days['整体点击次数'].sum(),
+                        '前3天总订单': first_days['整体成交订单数'].sum(),
+                        '前3天总GMV': first_days['整体成交金额'].sum(),
+                    }
                 
                 # 计算衍生指标，处理除零情况
                 if features['前3天总展现'] > 0:
@@ -277,11 +304,19 @@ class MaterialPredictionSystem:
                 # 播放率指标
                 play_rate_cols = ['视频完播率', '平均观看时长', '2秒播放率', '3秒播放率', '5秒播放率', '10秒播放率']
                 for col in play_rate_cols:
-                    if col in material_data.columns:
-                        features[f'前3天平均{col}'] = material_data[col].mean()
+                    if col in material_data.columns and not material_data[col].isna().all():
+                        if len(material_data) == 1:
+                            # 单条记录直接使用该值
+                            features[f'前3天平均{col}'] = material_data[col].iloc[0]
+                        else:
+                            # 多条记录计算平均值
+                            features[f'前3天平均{col}'] = material_data[col].mean()
                     else:
                         features[f'前3天平均{col}'] = 0
-                        print(f"⚠️ 缺少 '{col}'，填充为0")
+                        if col in material_data.columns:
+                            print(f"⚠️ 列 '{col}' 无有效数据，填充为0")
+                        else:
+                            print(f"⚠️ 缺少列 '{col}'，填充为0")
                 
                 # 稳定性指标 (变异系数)，仅在有足够数据时计算
                 if len(material_data) >= 3:
@@ -353,45 +388,53 @@ class MaterialPredictionSystem:
             score = 0.0
             
             try:
-                # CTR权重 (30%)
+                # CTR权重 (25%) - 放松阈值（2.5%→2.0%）
                 if pd.notna(row['前3天CTR']):
-                    if row['前3天CTR'] >= 0.025:
-                        score += 0.3
-                    elif row['前3天CTR'] >= 0.02:
-                        score += 0.2
+                    if row['前3天CTR'] >= 0.02:
+                        score += 0.25
                     elif row['前3天CTR'] >= 0.015:
-                        score += 0.1
-                
-                # CVR权重 (25%)
-                if pd.notna(row['前3天CVR']):
-                    if row['前3天CVR'] >= 0.08:
-                        score += 0.25
-                    elif row['前3天CVR'] >= 0.06:
-                        score += 0.2
-                    elif row['前3天CVR'] >= 0.04:
-                        score += 0.1
-                
-                # ROI权重 (25%)
-                if pd.notna(row['前3天ROI']):
-                    if row['前3天ROI'] >= 1.8:
-                        score += 0.25
-                    elif row['前3天ROI'] >= 1.5:
-                        score += 0.2
-                    elif row['前3天ROI'] >= 1.2:
-                        score += 0.1
-                
-                # 消耗规模权重 (10%)
-                if pd.notna(row['前3天总消耗']):
-                    if row['前3天总消耗'] >= 500:
-                        score += 0.1
-                    elif row['前3天总消耗'] >= 200:
+                        score += 0.15
+                    elif row['前3天CTR'] >= 0.01:
+                        score += 0.08
+                    elif row['前3天CTR'] >= 0.008:
                         score += 0.05
                 
-                # 稳定性权重 (10%)
-                if pd.notna(row['ROI变异系数']):
-                    if row['ROI变异系数'] <= 0.3:
+                # CVR权重 (25%) - 放松阈值（8%→6%）
+                if pd.notna(row['前3天CVR']):
+                    if row['前3天CVR'] >= 0.06:
+                        score += 0.25
+                    elif row['前3天CVR'] >= 0.045:
+                        score += 0.15
+                    elif row['前3天CVR'] >= 0.03:
+                        score += 0.08
+                    elif row['前3天CVR'] >= 0.02:
+                        score += 0.05
+                
+                # ROI权重 (25%) - 放松要求（1.8→1.5）
+                if pd.notna(row['前3天ROI']):
+                    if row['前3天ROI'] >= 1.5:
+                        score += 0.25
+                    elif row['前3天ROI'] >= 1.3:
+                        score += 0.15
+                    elif row['前3天ROI'] >= 1.1:
+                        score += 0.08
+                    elif row['前3天ROI'] >= 1.0:
+                        score += 0.05
+                
+                # 消耗规模权重 (15%) - 放松规模投放（500→300）
+                if pd.notna(row['前3天总消耗']):
+                    if row['前3天总消耗'] >= 300:
+                        score += 0.15
+                    elif row['前3天总消耗'] >= 200:
                         score += 0.1
-                    elif row['ROI变异系数'] <= 0.5:
+                    elif row['前3天总消耗'] >= 100:
+                        score += 0.05
+                
+                # 稳定性权重 (10%) - 放松要求（0.3→0.5）
+                if pd.notna(row['ROI变异系数']):
+                    if row['ROI变异系数'] <= 0.5:
+                        score += 0.1
+                    elif row['ROI变异系数'] <= 0.7:
                         score += 0.05
                         
             except Exception as e:
@@ -444,8 +487,16 @@ class MaterialPredictionSystem:
                 print("⚠️ 警告: 特征数据中缺少'素材ID'列，将只使用预测结果")
                 full_report = predictions_df
             else:
+                # 合并数据时，确保不覆盖重要的原始数据列
+                # 先检查是否有重复列名，特别是消耗相关的列
+                overlapping_cols = set(predictions_df.columns) & set(features_df.columns)
+                overlapping_cols.discard('素材ID')  # 素材ID是合并键，不算重复
+                
+                if overlapping_cols:
+                    print(f"⚠️ 检测到重复列: {overlapping_cols}，将优先保留预测数据中的值")
+                
                 # 合并数据
-                full_report = predictions_df.merge(features_df, on='素材ID', how='left')
+                full_report = predictions_df.merge(features_df, on='素材ID', how='left', suffixes=('', '_特征'))
         
         # 确保输出目录存在
         ensure_output_dir(output_path)
@@ -772,6 +823,13 @@ def match_with_source_data(potential_materials_file, source_data_file, output_pr
             else:
                 print("⚠️ 未找到日期为'全部'的记录，将使用所有匹配记录")
         
+        # 确保使用原始数据的'整体消耗'，而不是计算后的特征值
+        print("🔧 确保使用原始数据的'整体消耗'数值...")
+        if '整体消耗' in matched_df.columns:
+            print(f"✅ 原始数据包含'整体消耗'列，将保持原始数值")
+        else:
+            print("⚠️ 原始数据中未找到'整体消耗'列")
+        
         print(f"📊 最终匹配结果 - {len(matched_df)} 条记录，涉及 {matched_df['素材ID'].nunique()} 个素材") # type: ignore
         
         # 检查是否有内容相同的表格已存在
@@ -939,7 +997,7 @@ def main():
     parser = argparse.ArgumentParser(description="抖音素材潜力预测系统")
     parser.add_argument("-f", "--source-file", help="源数据文件路径")
     parser.add_argument("-o", "--output-dir", default="data", help="输出目录")
-    parser.add_argument("-p", "--output-prefix", default="素材数据", help="输出文件前缀")
+    parser.add_argument("-p", "--output-prefix", default="有潜力素材预测", help="输出文件前缀")
     parser.add_argument("--history-file", default="data/processed_materials_history.json", help="已处理素材历史记录文件")
     parser.add_argument("--no-dedup", action="store_true", help="禁用素材去重功能")
     parser.add_argument("--model-path", default="", help="模型路径，留空使用预训练模型")

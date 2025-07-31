@@ -13,11 +13,11 @@ API_KEY = "AIzaSyDxnQNBD0dtIKtZHpubgv_ZSw7AG_7tYCU"
 MODEL_NAME = "models/gemini-2.0-flash"
 
 # --- 文件路径配置 ---
-PRODUCT_JSON_PATH = r"./json/Product.json"
-MERGED_MATERIAL_DATA_PATH = r"./json/素材数据分析/merged_material_data.json"  # 合并后的素材数据路径
-VIDEO_FILE_PATH = r"./storage/video/留香珠/0605-留香珠-促销-【砍一刀】01-zyjd.mp4"
+PRODUCT_JSON_PATH = r"../json/Product.json"
+MERGED_MATERIAL_DATA_PATH = r"../json/素材数据分析/merged_material_data.json"  # 合并后的素材数据路径
+VIDEO_FILE_PATH = r"../storage/video/留香珠/0605-留香珠-促销-【砍一刀】01-zyjd.mp4"
 # 批量处理的视频目录配置
-BATCH_VIDEO_DIR = r"./storage/video/留香珠"
+BATCH_VIDEO_DIR = r"../storage/video/留香珠"
 
 # --- 新增函数：从data目录获取素材ID并查找对应素材名称 ---
 def get_material_names_from_ids():
@@ -969,7 +969,7 @@ def analyze_material_by_video_path(video_file_path, client=None):
     
     # 从BATCH_VIDEO_DIR中提取文件夹名称，用于输出路径
     output_subdir = extract_folder_name_from_path(BATCH_VIDEO_DIR)
-    output_dir = os.path.join(r"./json", output_subdir)
+    output_dir = os.path.join(r"../json", output_subdir)
     
     print(f"开始分析素材:")
     print(f"  视频文件: {video_file_path}")

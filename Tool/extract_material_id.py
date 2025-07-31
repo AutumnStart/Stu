@@ -132,7 +132,7 @@ def extract_top_material_ids(input_file, output_file, top_n=5):
 
 def find_material_data_file(data_dir):
     """
-    在指定目录中查找以"素材数据"开头的Excel文件
+    在指定目录中查找Excel文件
     
     Args:
         data_dir (str): 数据目录路径
@@ -140,7 +140,7 @@ def find_material_data_file(data_dir):
     Returns:
         str: 找到的文件路径，如果没找到则返回None
     """
-    # 查找所有以"素材数据"开头的Excel文件
+    # 查找所有Excel文件
     pattern = os.path.join(data_dir, "素材数据*.xlsx")
     files = glob.glob(pattern)
     
@@ -161,7 +161,7 @@ def main():
     # 查找素材数据文件
     material_file = find_material_data_file(data_dir)
     if not material_file:
-        print("错误: 未找到素材数据文件")
+        print("错误: 未找到Excel文件")
         return
     
     # 定义输出文件路径
@@ -192,4 +192,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

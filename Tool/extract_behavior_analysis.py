@@ -50,34 +50,57 @@ def extract_material_names(ai_result_file):
         traceback.print_exc()
         return []
 
-def find_json_file(material_name, json_dir):
+def find_json_file(material_name, base_dir):
     """
-    根据素材名称在指定目录中查找对应的JSON文件
+    根据素材名称查找对应的JSON文件
     
     Args:
         material_name: 素材名称
-        json_dir: JSON文件所在目录
+        base_dir: 基础目录路径
         
     Returns:
-        str: JSON文件路径，如果找不到则返回None
+        str: JSON文件的完整路径，如果未找到则返回None
     """
     try:
-        # 构建JSON文件名模式
-        json_filename = f"素材分析报告_{material_name}.json"
-        json_path = os.path.join(json_dir, json_filename)
-        
-        if os.path.exists(json_path):
-            return json_path
-        
-        # 如果找不到精确匹配的文件，尝试模糊匹配
-        material_parts = material_name.split('-')
-        if len(material_parts) >= 4:  # 至少包含日期、产品、类型和标题
-            material_prefix = '-'.join(material_parts[:4])  # 使用前4个部分进行匹配
+        # 优先在项目根目录下的json文件夹中查找
+        json_dir = base_dir / "json" / "留香珠"
+        if json_dir.exists():
+            # 构建JSON文件名模式
+            json_filename = f"素材分析报告_{material_name}.json"
+            json_path = json_dir / json_filename
             
-            # 列出目录下的所有文件
-            for filename in os.listdir(json_dir):
-                if filename.startswith(f"素材分析报告_{material_prefix}") and filename.endswith(".json"):
-                    return os.path.join(json_dir, filename)
+            if json_path.exists():
+                return str(json_path)
+            
+            # 如果找不到精确匹配的文件，尝试模糊匹配
+            material_parts = material_name.split('-')
+            if len(material_parts) >= 4:  # 至少包含日期、产品、类型和标题
+                material_prefix = '-'.join(material_parts[:4])  # 使用前4个部分进行匹配
+                
+                # 列出目录下的所有文件
+                for filename in os.listdir(json_dir):
+                    if filename.startswith(f"素材分析报告_{material_prefix}") and filename.endswith(".json"):
+                        return str(json_dir / filename)
+        
+        # 如果项目根目录下没有找到，则在agents目录下的json文件夹中查找（向后兼容）
+        agents_json_dir = base_dir / "agents" / "json" / "留香珠"
+        if agents_json_dir.exists():
+            # 构建JSON文件名模式
+            json_filename = f"素材分析报告_{material_name}.json"
+            json_path = agents_json_dir / json_filename
+            
+            if json_path.exists():
+                return str(json_path)
+            
+            # 如果找不到精确匹配的文件，尝试模糊匹配
+            material_parts = material_name.split('-')
+            if len(material_parts) >= 4:  # 至少包含日期、产品、类型和标题
+                material_prefix = '-'.join(material_parts[:4])  # 使用前4个部分进行匹配
+                
+                # 列出目录下的所有文件
+                for filename in os.listdir(agents_json_dir):
+                    if filename.startswith(f"素材分析报告_{material_prefix}") and filename.endswith(".json"):
+                        return str(agents_json_dir / filename)
         
         return None
     except Exception as e:
@@ -233,7 +256,12 @@ def main():
     # 定义文件路径
     base_dir = Path(__file__).parent.parent
     ai_result_file = base_dir / "json" / "素材数据分析" / "AI分析结果.txt"
+    
+    # 首先尝试项目根目录下的json文件夹
     json_dir = base_dir / "json" / "留香珠"
+    if not json_dir.exists():
+        # 如果项目根目录下没有，则使用agents目录下的json文件夹
+        json_dir = base_dir / "agents" / "json" / "留香珠"
     
     print("=" * 50)
     print(f"关键用户行为节点分析提取工具")
@@ -284,7 +312,7 @@ def main():
             print(f"  ✓ 已包含关键用户行为节点分析，跳过")
             continue
         
-        json_file = find_json_file(name, json_dir)
+        json_file = find_json_file(name, base_dir)
         if json_file:
             print(f"  找到对应JSON文件: {os.path.basename(json_file)}")
             behavior_analysis = extract_behavior_analysis(json_file)
@@ -329,4 +357,4 @@ if __name__ == "__main__":
         print(f"程序执行出错: {str(e)}")
         traceback.print_exc()
         print("\n请将以上错误信息反馈给开发人员")
-        input("按任意键退出...") 
+        input("按任意键退出...")

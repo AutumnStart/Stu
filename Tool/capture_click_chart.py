@@ -8,6 +8,63 @@ from playwright.sync_api import Playwright, sync_playwright, expect
 
 import download_videos
 
+def check_search_results(page, material_id):
+    """
+    检查搜索结果是否存在
+    返回True表示有结果，False表示无结果
+    """
+    try:
+        # 方法1: 检查是否有"暂无数据"或类似的提示
+        no_data_selectors = [
+            "text=暂无数据",
+            "text=无搜索结果", 
+            "text=未找到相关素材",
+            "text=没有找到相关内容",
+            ".empty-state",
+            ".no-data",
+            "[data-testid='empty-state']"
+        ]
+        
+        for selector in no_data_selectors:
+            try:
+                if page.locator(selector).is_visible(timeout=2000):
+                    print(f"检测到无数据提示: {selector}")
+                    return False
+            except:
+                continue
+        
+        # 方法2: 检查是否有素材列表或分析按钮
+        result_indicators = [
+            ".analyse",  # 分析按钮
+            "[data-testid='material-item']",  # 素材项
+            ".material-list",  # 素材列表
+            "text=分析"
+        ]
+        
+        for selector in result_indicators:
+            try:
+                if page.locator(selector).is_visible(timeout=2000):
+                    print(f"检测到搜索结果: {selector}")
+                    return True
+            except:
+                continue
+        
+        # 方法3: 检查页面是否包含素材ID相关内容
+        try:
+            if page.locator(f"text={material_id}").is_visible(timeout=2000):
+                print(f"在页面中找到素材ID: {material_id}")
+                return True
+        except:
+            pass
+        
+        # 如果以上方法都无法确定，默认认为有结果（保守策略）
+        print("无法确定搜索结果状态，默认认为有结果")
+        return True
+        
+    except Exception as e:
+        print(f"检查搜索结果时出错: {e}，默认认为有结果")
+        return True
+
 def handle_popups(page):
     """处理页面上的各种弹窗"""
     try:
@@ -46,21 +103,29 @@ def search_and_capture_material(page, material_id, output_dir):
         # 1. 搜索素材ID
         print(f"开始搜索素材ID: {material_id}")
         try:
-            # 首先尝试点击搜索框
+            # 首先尝试点击搜索框，设置超时
             search_box = page.get_by_role("textbox", name="输入素材名称或ID")
-            search_box.click()
+            search_box.click(timeout=10000)
             # 清空搜索框
-            search_box.fill("")
+            search_box.fill("", timeout=5000)
             # 输入素材ID
-            search_box.fill(material_id)
+            search_box.fill(material_id, timeout=5000)
             # 按回车搜索
-            search_box.press("Enter")
+            search_box.press("Enter", timeout=5000)
             print(f"已搜索素材ID: {material_id}")
             
             # 等待搜索结果加载
             time.sleep(3)
+            
+            # 检查是否有搜索结果
+            if not check_search_results(page, material_id):
+                print(f"素材ID {material_id} 搜索无结果，跳过此素材")
+                return False
+                
         except Exception as e:
             print(f"搜索素材ID失败: {e}")
+            print("搜索操作超时或失败，跳过此素材")
+            return False
 
         
         # 1.5 下载视频
@@ -82,17 +147,20 @@ def search_and_capture_material(page, material_id, output_dir):
                 print(f"视频下载失败: {download_result.get('error', '未知错误')}")
         except Exception as e:
             print(f"下载视频过程中发生错误: {e}")
+            print("视频下载失败，但继续处理其他步骤...")
             # 继续执行，不因视频下载失败而中断整个流程
         
         # 2. 点击分析按钮（内容分析模块）
         try:
             print("点击分析按钮进入内容分析模块...")
-            page.locator("div:nth-child(2) > span > .analyse").first.click()
+            page.locator("div:nth-child(2) > span > .analyse").first.click(timeout=10000)
             print("成功点击分析按钮")
             # 等待页面加载
             time.sleep(5)
         except Exception as e:
             print(f"点击分析按钮失败: {e}")
+            print("无法进入分析模块，跳过此素材")
+            return False
         
         # 3. 获取当前时间作为文件名基础
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -344,7 +412,18 @@ def main():
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    material_ids = data.get("素材ID列表", [])
+    # 兼容两种JSON格式：直接数组格式和字典格式
+    if isinstance(data, list):
+        # 新格式：直接是素材ID数组
+        material_ids = data
+        print(f"检测到新格式JSON文件（直接数组格式）")
+    elif isinstance(data, dict) and "素材ID列表" in data:
+        # 旧格式：包含"素材ID列表"键的字典
+        material_ids = data.get("素材ID列表", [])
+        print(f"检测到旧格式JSON文件（字典格式）")
+    else:
+        print("错误: JSON文件格式不正确，应该是素材ID数组或包含'素材ID列表'键的字典。")
+        return
     
     if not material_ids:
         print("错误: JSON文件中未找到'素材ID列表'或列表为空。")
@@ -352,111 +431,135 @@ def main():
         
     print(f"找到 {len(material_ids)} 个素材ID，准备开始批量处理...")
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=False)
-        context = browser.new_context()
-        page = context.new_page()
-        
-        try:
-            # 登录巨量引擎
-            page.goto("https://business.oceanengine.com/login?appKey=80")
-            page.get_by_text("邮箱登录").click()
-            page.get_by_role("textbox", name="请输入邮箱").click()
-            page.get_by_role("textbox", name="请输入邮箱").fill("tianqi.wang@gewuchuanmei.com")
-            page.get_by_role("textbox", name="请输入邮箱").press("Tab")
-            page.get_by_role("textbox", name="密码").fill("Soulink-88818")
-            page.locator("use").nth(1).click()
-            page.get_by_role("button", name="登录").click()
-            print(1)
-            # 等待登录成功
-            page.wait_for_load_state("networkidle")
-            print(2)
-            print("登录成功!")
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
             
-            time.sleep(3)
-            
-            # 打开智联页面
-            with page.expect_popup() as page1_info:
-                page.get_by_text("智联（卓尔01）-PWU-留香珠").click()
-            page1 = page1_info.value
-            
-            
-            # 处理弹窗
-            # print("处理可能的弹窗...")
-            # handle_popups(page1)
-
-            # 导航到数据分析页面
-            page1.get_by_role("button", name="数据").click()
-            page1.locator("a").filter(has_text="全域数据").click()
-            time.sleep(3)
-            
-            # # 处理点击全域数据后可能出现的弹窗
-            # handle_popups(page1)
-            
-            page1.locator("div").filter(has_text=re.compile(r"^素材数据$")).nth(2).click()
-            time.sleep(3)
-            
-            # 设置截图保存目录
-            main_screenshot_dir = "screenshots"
-            error_dir = os.path.join("screenshots", "errors")
-            os.makedirs(main_screenshot_dir, exist_ok=True)
-            os.makedirs(error_dir, exist_ok=True)
-            print(f"确认主截图目录存在: {main_screenshot_dir}")
-
-            # 批量处理素材ID
-            for i, material_id in enumerate(material_ids):
-                material_id_str = str(material_id)
-
-                # 检查结果是否已存在于screenshots目录
-                material_screenshot_dir = os.path.join(main_screenshot_dir, f"Material_{material_id_str}")
-                
-                # 如果目录存在且至少包含2个图表文件，则跳过
-                if os.path.exists(material_screenshot_dir) and len([name for name in os.listdir(material_screenshot_dir) if name.endswith('.png')]) >= 2:
-                    print(f"结果已存在，跳过素材ID: {material_id_str}")
-                    continue
-
-                print(f"\n{'='*20} 开始处理第 {i+1}/{len(material_ids)} 个素材: {material_id_str} {'='*20}")
-                
-                try:
-                    # 创建该素材ID的截图目录
-                    material_dir = os.path.join(main_screenshot_dir, f"Material_{material_id_str}")
-                    os.makedirs(material_dir, exist_ok=True)
-                    print(f"创建素材截图目录: {material_dir}")
-                    
-                    time.sleep(2)
-                    
-                    success = search_and_capture_material(page1, material_id_str, material_dir)
-                    
-                    if success:
-                        print(f"成功处理素材ID {material_id_str} 并截取图表。截图保存在: {material_dir}")
-                    else:
-                        print(f"处理素材ID {material_id_str} 失败。")
-
-                except Exception as e:
-                    print(f"处理素材ID {material_id_str} 时出错: {e}")
-                    # 保存错误页面截图
-                    try:
-                        error_path = os.path.join(material_dir, f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
-                        page1.screenshot(path=error_path)
-                        print(f"已保存错误状态截图: {error_path}")
-                    except Exception as err:
-                        print(f"无法保存错误状态截图: {err}")
-            
-        except Exception as e:
-            print(f"发生严重错误: {e}")
             try:
+                # 登录巨量引擎
+                page.goto("https://business.oceanengine.com/login?appKey=80", timeout=30000)
+                page.get_by_text("邮箱登录").click(timeout=10000)
+                page.get_by_role("textbox", name="请输入邮箱").click(timeout=10000)
+                page.get_by_role("textbox", name="请输入邮箱").fill("tianqi.wang@gewuchuanmei.com", timeout=10000)
+                page.get_by_role("textbox", name="请输入邮箱").press("Tab", timeout=5000)
+                page.get_by_role("textbox", name="密码").fill("Soulink-88818", timeout=10000)
+                page.locator("use").nth(1).click(timeout=10000)
+                page.get_by_role("button", name="登录").click(timeout=10000)
+
+                # 等待登录成功
+                page.wait_for_load_state("networkidle", timeout=30000)
+
+                print("登录成功!")
+                
+                time.sleep(3)
+                
+                # 打开智联页面
+                with page.expect_popup(timeout=15000) as page1_info:
+                    page.get_by_text("智联（卓尔01）-PWU-留香珠").click(timeout=10000)
+                page1 = page1_info.value
+                
+                
+                # 处理弹窗
+                # print("处理可能的弹窗...")
+                # handle_popups(page1)
+
+                # 导航到数据分析页面
+                page1.get_by_role("button", name="数据").click(timeout=10000)
+                page1.locator("a").filter(has_text="全域数据").click(timeout=10000)
+                time.sleep(3)
+                
+                # # 处理点击全域数据后可能出现的弹窗
+                # handle_popups(page1)
+                
+                page1.locator("div").filter(has_text=re.compile(r"^素材数据$")).nth(2).click(timeout=10000)
+                time.sleep(3)
+                
+                # 设置截图保存目录
+                main_screenshot_dir = "screenshots"
                 error_dir = os.path.join("screenshots", "errors")
+                os.makedirs(main_screenshot_dir, exist_ok=True)
                 os.makedirs(error_dir, exist_ok=True)
-                error_path = os.path.join(error_dir, f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
-                page.screenshot(path=error_path)
-                print(f"已保存错误状态截图: {error_path}")
-            except Exception as err:
-                print(f"无法保存错误状态截图: {err}")
-        finally:
-            context.close()
-            browser.close()
-            print("浏览器已关闭")
-            print(f"\n{'='*20} 所有素材ID处理完毕 {'='*20}")
+                print(f"确认主截图目录存在: {main_screenshot_dir}")
+
+                # 批量处理素材ID
+                for i, material_id in enumerate(material_ids):
+                    material_id_str = str(material_id)
+
+                    # 检查结果是否已存在于screenshots目录
+                    material_screenshot_dir = os.path.join(main_screenshot_dir, f"Material_{material_id_str}")
+                    
+                    # 如果目录存在且至少包含2个图表文件，则跳过
+                    if os.path.exists(material_screenshot_dir) and len([name for name in os.listdir(material_screenshot_dir) if name.endswith('.png')]) >= 2:
+                        print(f"结果已存在，跳过素材ID: {material_id_str}")
+                        continue
+
+                    print(f"\n{'='*20} 开始处理第 {i+1}/{len(material_ids)} 个素材: {material_id_str} {'='*20}")
+                    
+                    try:
+                        # 创建该素材ID的截图目录
+                        material_dir = os.path.join(main_screenshot_dir, f"Material_{material_id_str}")
+                        os.makedirs(material_dir, exist_ok=True)
+                        print(f"创建素材截图目录: {material_dir}")
+                        
+                        time.sleep(2)
+                        
+                        success = search_and_capture_material(page1, material_id_str, material_dir)
+                        
+                        if success:
+                            print(f"成功处理素材ID {material_id_str} 并截取图表。截图保存在: {material_dir}")
+                        elif success is False:
+                            print(f"素材ID {material_id_str} 搜索无结果，已跳过处理。")
+                            # 删除空的目录
+                            try:
+                                if os.path.exists(material_dir) and not os.listdir(material_dir):
+                                    os.rmdir(material_dir)
+                                    print(f"已删除空目录: {material_dir}")
+                            except Exception as e:
+                                print(f"删除空目录失败: {e}")
+                            continue
+                        else:
+                            print(f"处理素材ID {material_id_str} 失败。")
+
+                    except Exception as e:
+                        print(f"处理素材ID {material_id_str} 时出错: {e}")
+                        # 保存错误页面截图
+                        try:
+                            error_path = os.path.join(material_dir, f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+                            page1.screenshot(path=error_path)
+                            print(f"已保存错误状态截图: {error_path}")
+                        except Exception as err:
+                            print(f"无法保存错误状态截图: {err}")
+            
+            except Exception as e:
+                print(f"发生严重错误: {e}")
+                print(f"错误类型: {type(e).__name__}")
+                if "timeout" in str(e).lower():
+                    print("检测到超时错误，这通常是由于网络延迟或页面加载缓慢导致的")
+                try:
+                    error_dir = os.path.join("screenshots", "errors")
+                    os.makedirs(error_dir, exist_ok=True)
+                    error_path = os.path.join(error_dir, f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+                    page.screenshot(path=error_path)
+                    print(f"已保存错误状态截图: {error_path}")
+                except Exception as err:
+                    print(f"无法保存错误状态截图: {err}")
+                print("程序将继续运行，尝试处理剩余素材...")
+                # 不要在这里退出程序，让程序继续运行
+            finally:
+                try:
+                    context.close()
+                    browser.close()
+                    print("浏览器已关闭")
+                except Exception as cleanup_error:
+                    print(f"清理浏览器资源时出错: {cleanup_error}")
+                print(f"\n{'='*20} 所有素材ID处理完毕 {'='*20}")
+    except Exception as init_error:
+        print(f"程序初始化失败: {init_error}")
+        print(f"错误类型: {type(init_error).__name__}")
+        print("请检查网络连接和浏览器环境")
+        return
 
 if __name__ == "__main__":
     main()

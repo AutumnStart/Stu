@@ -37,13 +37,17 @@ def download_video(page, output_dir):
             logger.info("尝试提取视频标题...")
             title_selector = "div[data-v-6d152e40].title.ellipsis-text-2"
             
-            # 尝试直接使用选择器
+            # 尝试直接使用选择器，设置较短的超时时间
             title_element = page.locator(title_selector).first
-            video_title = title_element.inner_text()
+            video_title = title_element.inner_text(timeout=15000)  # 15秒超时
             logger.info(f"成功提取到视频标题: {video_title}")
             
         except Exception as e:
             logger.error(f"使用选择器提取标题失败: {e}")
+            # 使用默认标题
+            import datetime
+            video_title = f"video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            logger.info(f"使用默认标题: {video_title}")
             
         
         # 2. 提取视频源URL
@@ -53,7 +57,7 @@ def download_video(page, output_dir):
             # 先点击视频缩略图容器
             try:
                 logger.info("尝试点击视频缩略图...")
-                page.locator("div.oc-media-thumb-container").first.click(timeout=5000)
+                page.locator("div.oc-media-thumb-container").first.click(timeout=10000)
                 logger.info("成功点击视频缩略图")
                 # 等待视频加载
                 time.sleep(2)
@@ -77,15 +81,19 @@ def download_video(page, output_dir):
                 except Exception as js_e:
                     logger.error(f"使用JavaScript点击视频缩略图也失败: {js_e}")
             
-            # 尝试直接使用选择器提取视频元素
+            # 尝试直接使用选择器提取视频元素，设置超时
             video_element = page.locator("video").first
-            video_src = video_element.get_attribute("src")
+            video_src = video_element.get_attribute("src", timeout=15000)  # 15秒超时
             
             if not video_src:
                 # 尝试获取data-src属性
-                video_src = video_element.get_attribute("data-src")
+                video_src = video_element.get_attribute("data-src", timeout=15000)
             
-            logger.info(f"成功提取到视频源URL: {video_src}")
+            if video_src:
+                logger.info(f"成功提取到视频源URL: {video_src}")
+            else:
+                logger.warning("未能提取到视频源URL")
+                raise Exception("视频源URL为空")
             
         except Exception as e:
             logger.error(f"使用选择器提取视频源URL失败: {e}")
@@ -174,4 +182,4 @@ def main():
     print("无法直接运行")
 
 if __name__ == "__main__":
-    main() 
+    main()

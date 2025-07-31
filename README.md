@@ -1,7 +1,7 @@
-# 方榭智联 - 短视频素材分析与优化工具集
+# 仿写智联 - 短视频素材分析与优化工具集
 
 ## 项目概述
-方榭智联是一套短视频素材分析与优化工具集，旨在帮助运营人员高效分析短视频素材效果、识别人群错配问题，并提供数据驱动的优化建议。该工具集集成了AI分析能力，可自动化处理数据提取、分析报告生成和优化指令推荐等任务。
+仿写智联是一套短视频素材分析与优化工具集，旨在帮助运营人员高效分析短视频素材效果、识别人群错配问题，并提供数据驱动的优化建议。该工具集集成了AI分析能力，可自动化处理数据提取、分析报告生成和优化指令推荐等任务。
 
 ## 功能特点
 
@@ -44,44 +44,84 @@ copy feishu_config_template.json feishu_config.json
 
 ## 使用方法
 
-### 快速开始
-运行主批处理脚本执行完整分析流程：
-```bash
-run_all.bat
-```
+### 启动顺序
+请按照以下顺序执行脚本以完成完整的分析流程：
+
+1.  **生产环境部署工具** (`Tool\production_deployment_tool.py`)
+    -   **功能**：此脚本用于抖音素材潜力预测系统的生产环境部署，可能涉及环境配置、依赖安装或数据初始化等操作。
+    -   **使用**：`python Tool\production_deployment_tool.py`
+
+2.  **素材数据过滤** (`Tool\filter_material_data.py`)
+    -   **功能**：根据预设条件（如高消耗）筛选素材数据，为后续分析做准备。
+    -   **使用**：`python Tool\filter_material_data.py`
+
+3.  **数据合并批处理** (`merge_data.bat`)
+    -   **功能**：执行数据合并操作，将多个数据源的数据整合在一起。
+    -   **使用**：`merge_data.bat`
+
+4.  **运行代理10** (`run_agent10.bat`)
+    -   **功能**：启动 `agent10.py`，基于 Gemini 2.0 Flash 进行素材分析，包括素材ID与名称的映射查找和批量视频分析。
+    -   **使用**：`run_agent10.bat`
+
+5.  **迭代分析批处理** (`merge_data_extract.bat`)
+    -   **功能**：执行迭代分析流程，可能涉及数据的提取和进一步处理。
+    -   **使用**：`merge_data_extract.bat`
+
+6.  **人群错配分析** (`Tool\audience_mismatch_analysis.py`)
+    -   **功能**：对比曝光人群与转化人群数据，识别潜在的人群错配问题并生成可视化报告。
+    -   **使用**：`python Tool\audience_mismatch_analysis.py`
+
+7.  **JSON数据分析** (`Tool\json_analyzer.py`)
+    -   **功能**：将JSON格式的分析数据转换为Excel或CSV格式的结构化报告，便于数据查看和进一步分析。
+    -   **使用**：`python Tool\json_analyzer.py`
+
+8.  **飞书写入工具** (`Tool\feishu_write.py`)
+    -   **功能**：提供与飞书多维表格交互的功能，实现数据的写入和更新，将分析结果同步到飞书。
+    -   **使用**：`python Tool\feishu_write.py`
+
+9.  **集成素材处理器** (`Tool\integrated_material_processor.py`)
+    -   **功能**：核心脚本，用于处理和上传素材数据到飞书，整合了多个处理步骤。
+    -   **使用**：`python Tool\integrated_material_processor.py`
+
+10. **TXT文件上传到飞书** (`Tool\txt_to_feishu_uploader.py`)
+    -   **功能**：读取指定文件夹下的所有TXT文件内容，合并后作为单条记录上传到飞书表格，用于收集和存储文本数据。
+    -   **使用**：`python Tool\txt_to_feishu_uploader.py`
 
 ### 单独工具使用
 
-#### 1. 媒体素材分析
-```bash
-cd Tool
-python IterativeMediaAnalyzer.py
-```
-该工具会自动读取`form`目录下最新的Excel文件，进行分析并生成AI优化指令。
+除了上述启动顺序，您也可以单独运行以下工具：
 
-#### 2. 人群错配分析
-```python
-from Tool.audience_mismatch_analysis import AudienceMismatchAnalysis
+#### 媒体素材分析 (`Tool\IterativeMediaAnalyzer.py`)
+-   **功能**：从Excel文件读取素材数据，结合行业基数标准，使用Gemini AI生成优化指令。
+-   **使用**：`python Tool\IterativeMediaAnalyzer.py`
 
-analyzer = AudienceMismatchAnalysis(
-    impression_img_path='曝光人群.png',
-    conversion_img_path='转化人群.png'
-)
-result = analyzer.analyze()
-```
+#### 点击图表捕获工具 (`Tool\capture_click_chart.py`)
+-   **功能**：使用 Playwright 自动化从巨量引擎平台提取视频素材的点击图表（如整体点击次数曲线图、整体流失数曲线图、八大人群分布人数图表）并保存到指定目录。
+-   **使用**：`python Tool\capture_click_chart.py`
 
-#### 3. JSON数据分析
-```bash
-cd Tool
-python json_analyzer.py
-```
-分析结果将保存到`analysis_report`目录。
+#### 视频下载工具 (`Tool\download_videos.py`)
+-   **功能**：从网页中提取视频标题和URL并下载视频。
+-   **使用**：`python Tool\download_videos.py`
 
-#### 4. 视频批量分析
-```bash
-cd agents
-python run_agent10.py
-```
+#### 行为分析提取工具 (`Tool\extract_behavior_analysis.py`)
+-   **功能**：从JSON文件中提取关键用户行为节点分析数据。
+-   **使用**：`python Tool\extract_behavior_analysis.py`
+
+#### Excel转JSON工具 (`Tool\extract_excel_to_json.py`)
+-   **功能**：将Excel格式的素材数据转换为JSON格式。
+-   **使用**：`python Tool\extract_excel_to_json.py`
+
+#### 素材ID提取工具 (`Tool\extract_material_id.py`)
+-   **功能**：从Excel文件中提取素材ID并保存为JSON格式。
+-   **使用**：`python Tool\extract_material_id.py`
+
+#### 高消耗素材筛选工具 (`Tool\filter_high_cost_materials.py`)
+-   **功能**：筛选出'整体消耗'大于阈值的素材并上传到飞书。
+-   **使用**：`python Tool\filter_high_cost_materials.py`
+
+#### Gemini图像峰值分析工具 (`Tool\gemini_image_peak_analysis.py`)
+-   **功能**：使用Gemini API分析图片中的曲线峰值。
+-   **使用**：`python Tool\gemini_image_peak_analysis.py`
 
 ## 项目结构
 ```

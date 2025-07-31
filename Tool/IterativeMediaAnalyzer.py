@@ -6,6 +6,13 @@ import pandas as pd
 
 def get_latest_excel_file(folder_path="form"):
     """查找指定文件夹下最新的Excel文件（.xls/.xlsx）"""
+    # 如果是相对路径，尝试从上级目录查找
+    if not os.path.isabs(folder_path):
+        # 获取脚本所在目录的上级目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(script_dir)
+        folder_path = os.path.join(parent_dir, folder_path)
+    
     if not os.path.exists(folder_path):
         print(f"❌ 文件夹不存在: {folder_path}")
         return None
@@ -29,6 +36,18 @@ def load_cardinal_numbers(file_path="Tool/cardinal_number"):
             "cvr": "6.25%",
             "click_rate": "4.06%"
         }
+        
+        # 如果是相对路径，尝试从当前目录或上级目录查找
+        if not os.path.isabs(file_path):
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            # 首先尝试当前目录
+            current_path = os.path.join(script_dir, os.path.basename(file_path))
+            if os.path.exists(current_path):
+                file_path = current_path
+            else:
+                # 然后尝试原始相对路径（从上级目录）
+                parent_dir = os.path.dirname(script_dir)
+                file_path = os.path.join(parent_dir, file_path)
         
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -163,7 +182,7 @@ def filter_high_cost_materials(file_path, cost_min=1000, cost_max=10000):
         print(f"✅ 成功读取数据 - 共 {len(df)} 条记录")
         # 字段自动识别
         cost_column = next((c for c in ['整体消耗', '消耗', '总消耗', '花费', 'cost'] if c in df.columns), None)
-        name_column = next((c for c in ['素材名称', '素材标题', '标题', '名称', 'title', 'name'] if c in df.columns), None)
+        name_column = next((c for c in ['全域素材视频名称', '素材名称', '素材标题', '标题', '名称', 'title', 'name'] if c in df.columns), None)
         id_column = next((c for c in ['素材ID', '素材id', 'material_id', '视频ID'] if c in df.columns), None)
         play3s_column = next((c for c in ['3秒播放率', '3s播放率'] if c in df.columns), None)
         cpm_column = next((c for c in ['CPM', 'cpm', '获客成本'] if c in df.columns), None)  # 保留原始CPM列识别，用于备用
@@ -276,10 +295,21 @@ def main():
     print("=" * 60)
     print("🔍 素材消耗区间筛选+AI分析工具")
     print("=" * 60)
-    latest_file = get_latest_excel_file()
-    if not latest_file:
-        return
-    filter_high_cost_materials(latest_file, cost_min=1000, cost_max=30000)
+    
+    # 首先尝试使用data目录下的素材数据.xlsx文件
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(script_dir)
+    data_file = os.path.join(parent_dir, "data", "素材数据.xlsx")
+    
+    if os.path.exists(data_file):
+        print(f"🆕 使用data目录下的素材数据文件: {data_file}")
+        filter_high_cost_materials(data_file, cost_min=1000, cost_max=30000)
+    else:
+        # 如果data目录下没有文件，则使用form目录下的最新文件
+        latest_file = get_latest_excel_file()
+        if not latest_file:
+            return
+        filter_high_cost_materials(latest_file, cost_min=1000, cost_max=30000)
 
 if __name__ == "__main__":
     main()

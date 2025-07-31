@@ -60,6 +60,7 @@ STR_FIELDS = ['素材ID', '整体支付ROI', '平均观看时长', '追投调控
 # 列名映射，将Excel列名映射为标准JSON字段名
 COLUMN_MAPPING = {
     '素材命名': '素材名称',
+    '全域素材视频名称': '素材名称',  # 添加这个映射
     '素材时长': '素材时长',
     '求和项:GMV': '整体成交金额',
     '整体成交金额GMV': '整体成交金额',
@@ -588,4 +589,4 @@ def main():
         return 0 if success else 1
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

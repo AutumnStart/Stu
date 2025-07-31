@@ -80,6 +80,19 @@ def create_requests_session():
     
     return session
 
+def get_mime_type(file_path):
+    """根据文件扩展名获取正确的MIME类型"""
+    ext = os.path.splitext(file_path)[1].lower()
+    mime_types = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.bmp': 'image/bmp',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    return mime_types.get(ext, 'image/jpeg')  # 默认使用jpeg
+
 def analyze_image(image_path, session):
     """调用Gemini API分析图片，获取主峰值和次峰值坐标"""
     # 读取并编码图片
@@ -99,13 +112,16 @@ def analyze_image(image_path, session):
         "返回格式为JSON: {\"main_peak\":{\"x\":时间值,\"y\":点击次数},\"secondary_peak\":{\"x\":时间值,\"y\":点击次数}}"
     )
     
+    # 获取正确的MIME类型
+    mime_type = get_mime_type(image_path)
+    
     # 构造API请求
     payload = {
         "contents": [{
             "parts": [
                 {"text": prompt},
                 {"inline_data": {
-                    "mime_type": "image/jpeg",
+                    "mime_type": mime_type,
                     "data": b64
                 }}
             ]
@@ -317,4 +333,4 @@ def main():
                 print(f"清理临时文件失败: {temp_file}, {e}")
 
 if __name__ == '__main__':
-    main() 
+    main()

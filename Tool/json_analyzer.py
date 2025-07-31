@@ -26,14 +26,13 @@ def log_message(message, file=None):
         file.flush()  # 立即写入文件
 
 
-def flatten_json(data, delimiter='.', remove_index=False):
+def flatten_json(data, delimiter='.'):
     """
     将嵌套的JSON结构扁平化为一个字典
     
     参数:
         data: JSON数据
         delimiter: 连接键名时使用的字符
-        remove_index: 是否移除所有列表索引标记
         
     返回:
         扁平化的字典
@@ -43,15 +42,10 @@ def flatten_json(data, delimiter='.', remove_index=False):
     def _flatten(x, prefix=""):
         if isinstance(x, dict):
             for key, value in x.items():
-                new_prefix = f"{prefix}{key}{delimiter}" if prefix else f"{key}{delimiter}"
-                _flatten(value, new_prefix)
+                _flatten(value, f"{prefix}{key}{delimiter}" if prefix else f"{key}{delimiter}")
         elif isinstance(x, list):
             for i, item in enumerate(x):
-                if remove_index:
-                    new_prefix = prefix
-                else:
-                    new_prefix = f"{prefix}[{i}]{delimiter}"
-                _flatten(item, new_prefix)
+                _flatten(item, f"{prefix}[{i}]{delimiter}")
         else:
             # 移除尾部的分隔符
             key = prefix[:-len(delimiter)] if prefix.endswith(delimiter) else prefix
@@ -70,8 +64,8 @@ def save_to_excel(data, filename="analysis_report.xlsx", log_file=None):
         filename: 输出Excel文件名
         log_file: 日志文件对象
     """
-    # 扁平化JSON结构，移除所有索引标记
-    flattened_data = flatten_json(data, remove_index=True)
+    # 扁平化JSON结构
+    flattened_data = flatten_json(data)
     
     # 计算总字段数
     total_fields = len(flattened_data)
@@ -114,7 +108,7 @@ def save_to_excel(data, filename="analysis_report.xlsx", log_file=None):
 
 def main():
     # 路径修正：定义相对于项目根目录的输入和输出目录
-    json_input_dir = "json/"
+    json_input_dir = "json/留香珠/"  # 修改为只处理“留香珠”文件夹
     output_dir = "analysis_report/"
     output_log_dir = "analysis_report/logs/"
     
@@ -125,6 +119,12 @@ def main():
     abs_json_input_dir = os.path.join(base_dir, json_input_dir)
     abs_output_dir = os.path.join(base_dir, output_dir)
     abs_output_log_dir = os.path.join(base_dir, output_log_dir)
+
+    # 检查输入目录是否存在
+    if not os.path.exists(abs_json_input_dir):
+        # 如果日志目录可能还未创建，直接打印到控制台
+        print(f"错误: 输入目录 '{abs_json_input_dir}' 不存在。程序将退出。")
+        return
 
     # 创建输出目录
     if not os.path.exists(abs_output_dir):
@@ -139,7 +139,7 @@ def main():
 
     # 打开日志文件
     with open(log_file_path, 'w', encoding='utf-8') as log_file:
-        log_message(f"开始扫描目录 '{abs_json_input_dir}' 查找最新的JSON文件...", log_file)
+        log_message(f"开始扫描目录 '{abs_json_input_dir}' 查找所有JSON文件...", log_file)
         
         # 遍历目录查找所有JSON文件
         all_json_files = []
@@ -155,39 +155,44 @@ def main():
             log_message(f"在 '{abs_json_input_dir}' 目录及其子目录中未找到任何JSON文件。", log_file)
             return
 
-        # 按文件修改时间降序排序，获取最新的文件
-        all_json_files.sort(key=os.path.getmtime, reverse=True)
-        latest_json_file = all_json_files[0]
+        log_message(f"找到 {len(all_json_files)} 个JSON文件，开始处理...", log_file)
         
-        log_message(f"找到最新的JSON文件: {latest_json_file}", log_file)
-        
-        # 构建输出文件名，将.json替换为.xlsx
-        base_filename = os.path.basename(latest_json_file)
-        output_filename = os.path.splitext(base_filename)[0] + ".xlsx"
-        output_file = os.path.join(abs_output_dir, output_filename)
+        processed_count = 0
+        for json_file in all_json_files:
+            log_message("-" * 50, log_file)
+            log_message(f"开始处理文件: {json_file}", log_file)
+            
+            try:
+                # 构建输出文件名，保留相对于“留香珠”目录的子目录结构
+                relative_path = os.path.relpath(json_file, abs_json_input_dir)
+                output_filename = os.path.splitext(relative_path)[0] + ".xlsx"
+                output_file = os.path.join(abs_output_dir, output_filename)
+                
+                # 创建输出文件的目录
+                output_file_dir = os.path.dirname(output_file)
+                if not os.path.exists(output_file_dir):
+                    os.makedirs(output_file_dir)
+                    log_message(f"创建子目录: {output_file_dir}", log_file)
+
+                # 读取JSON文件
+                with open(json_file, 'r', encoding='utf-8') as file:
+                    data = json.load(file)
+                
+                # 保存为Excel表格
+                save_to_excel(data, output_file, log_file)
+                
+                log_message(f"处理成功！输出文件: {output_file}", log_file)
+                processed_count += 1
+            
+            except FileNotFoundError:
+                log_message(f"错误: 找不到文件 {json_file}", log_file)
+            except json.JSONDecodeError:
+                log_message(f"错误: {json_file} 中的JSON格式无效", log_file)
+            except Exception as e:
+                log_message(f"处理 {json_file} 时发生未知错误: {e}", log_file)
         
         log_message("-" * 50, log_file)
-        log_message(f"开始处理文件: {latest_json_file}", log_file)
-        
-        try:
-            # 读取JSON文件
-            with open(latest_json_file, 'r', encoding='utf-8') as file:
-                data = json.load(file)
-            
-            # 保存为Excel表格
-            save_to_excel(data, output_file, log_file)
-            
-            log_message(f"处理成功！输出文件: {output_file}", log_file)
-        
-        except FileNotFoundError:
-            log_message(f"错误: 找不到文件 {latest_json_file}", log_file)
-        except json.JSONDecodeError:
-            log_message(f"错误: {latest_json_file} 中的JSON格式无效", log_file)
-        except Exception as e:
-            log_message(f"处理 {latest_json_file} 时发生未知错误: {e}", log_file)
-        
-        log_message("-" * 50, log_file)
-        log_message("单个JSON文件处理完毕。", log_file)
+        log_message(f"所有文件处理完毕。共处理了 {processed_count}/{len(all_json_files)} 个文件。", log_file)
         log_message(f"详细日志已保存到 {log_file_path}", log_file)
 
 

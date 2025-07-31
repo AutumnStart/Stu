@@ -330,75 +330,64 @@ def excel_to_feishu(excel_file, config_file='feishu_config.json', profile_name=N
         return 0
 
 
-def find_latest_excel_in_report_dir():
-    """在 'analysis_report' 目录下找到最新的Excel文件"""
-    # 路径修正：从脚本所在位置(Tool/)返回上一级目录再进入目标文件夹
-    report_dir = os.path.join(os.path.dirname(__file__), '..', 'analysis_report')
-    excel_files = [f for f in os.listdir(report_dir) if f.endswith('.xlsx') and not f.startswith('~$')]
-    if not excel_files:
-        print(f"在目录 '{os.path.basename(report_dir)}' 中没有找到Excel文件。")
-        return None
-    
-    latest_file = max(excel_files, key=lambda f: os.path.getmtime(os.path.join(report_dir, f)))
-    return os.path.join(report_dir, latest_file)
-
 def main():
     """主函数"""
     # 路径修正：所有路径都相对于项目根目录
     analysis_dir = 'analysis_report'
     config_file = 'feishu_config.json'
     # 为这个脚本硬编码指定它应该使用的配置名称
-    profile_name_for_this_script = "another_function_placeholder" 
-    
+    profile_name_for_this_script = "another_function_placeholder"
+
     # 路径修正：从脚本所在位置(Tool/)返回上一级目录再进入目标文件夹
     abs_analysis_dir = os.path.join(os.path.dirname(__file__), '..', analysis_dir)
     # 检查分析目录是否存在
     if not os.path.exists(abs_analysis_dir):
         print(f"错误: 目录 '{abs_analysis_dir}' 不存在")
         return
-    
+
     # 查找所有Excel文件，并获取完整路径
-    all_files = [os.path.join(abs_analysis_dir, f) for f in os.listdir(abs_analysis_dir) if f.endswith('.xlsx')]
-    
-    if not all_files:
-        print(f"在 '{analysis_dir}' 目录中未找到Excel文件")
-        return
-    
-    # 过滤掉临时文件（以~$开头）
-    excel_files = [f for f in all_files if not os.path.basename(f).startswith('~$')]
+    all_excel_files = []
+    for root, _, files in os.walk(abs_analysis_dir):
+        for file in files:
+            if file.endswith('.xlsx') and not file.startswith('~$'):
+                all_excel_files.append(os.path.join(root, file))
 
-    if not excel_files:
-        print(f"在 '{analysis_dir}' 目录中未找到有效的Excel文件")
+    if not all_excel_files:
+        print(f"在 '{analysis_dir}' 目录及其子目录中未找到有效的Excel文件")
         return
 
-    # 按文件修改时间降序排序，获取最新的文件
-    excel_files.sort(key=os.path.getmtime, reverse=True)
-    latest_file = excel_files[0]
-    
-    print(f"找到最新的Excel文件: {os.path.basename(latest_file)}")
-    print("准备将数据写入到已存在的飞书多维表中...")
-    
-    # 在调用excel_to_feishu时，传入正确的profile_name
-    total_records = excel_to_feishu(latest_file, config_file, profile_name=profile_name_for_this_script)
-    
-    if total_records > 0:
-        print(f"\n文件处理完成，共向飞书多维表添加了 {total_records} 条记录")
-    
-        # 记录执行日志
-        # 路径修正：日志目录也需要基于新的analysis_dir路径
+    print(f"找到 {len(all_excel_files)} 个Excel文件，准备处理...")
+    total_added_records = 0
+    processed_files = []
+
+    for excel_file in all_excel_files:
+        print("-" * 50)
+        print(f"处理文件: {os.path.relpath(excel_file, abs_analysis_dir)}")
+        added_count = excel_to_feishu(excel_file, config_file, profile_name=profile_name_for_this_script)
+        if added_count > 0:
+            total_added_records += added_count
+            processed_files.append(os.path.basename(excel_file))
+
+    print("-" * 50)
+    print(f"\n所有文件处理完成，共向飞书多维表添加了 {total_added_records} 条新记录。")
+
+    # 记录执行日志
+    if total_added_records > 0:
         log_dir = os.path.join(abs_analysis_dir, 'logs')
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
-            
+
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_file = os.path.join(log_dir, f'feishu_upload_{timestamp}.log')
-        
+        log_file = os.path.join(log_dir, f'feishu_upload_summary_{timestamp}.log')
+
         with open(log_file, 'w', encoding='utf-8') as f:
             f.write(f"上传时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"处理文件: {os.path.basename(latest_file)}\n")
-            f.write(f"上传记录数: {total_records}\n")
-        
-        print(f"执行日志已保存到 {log_file}")
+            f.write(f"总共上传记录数: {total_added_records}\n")
+            f.write("处理过的文件列表:\n")
+            for p_file in processed_files:
+                f.write(f"- {p_file}\n")
+
+        print(f"执行摘要日志已保存到 {log_file}")
 
 if __name__ == "__main__":
     main()
