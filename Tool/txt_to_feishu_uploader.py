@@ -9,8 +9,6 @@ TXT Content Extractor and Feishu Uploader
 2. 解析AI分析结果的结构化数据
 3. 将数据上传到飞书表格
 
-作者：AI Assistant
-版本：v1.0
 """
 
 import os
