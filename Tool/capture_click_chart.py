@@ -442,9 +442,9 @@ def main():
                 page.goto("https://business.oceanengine.com/login?appKey=80", timeout=30000)
                 page.get_by_text("邮箱登录").click(timeout=10000)
                 page.get_by_role("textbox", name="请输入邮箱").click(timeout=10000)
-                page.get_by_role("textbox", name="请输入邮箱").fill("tianqi.wang@gewuchuanmei.com", timeout=10000)
+                page.get_by_role("textbox", name="请输入邮箱").fill("", timeout=10000)
                 page.get_by_role("textbox", name="请输入邮箱").press("Tab", timeout=5000)
-                page.get_by_role("textbox", name="密码").fill("Soulink-88818", timeout=10000)
+                page.get_by_role("textbox", name="密码").fill("", timeout=10000)
                 page.locator("use").nth(1).click(timeout=10000)
                 page.get_by_role("button", name="登录").click(timeout=10000)
 
