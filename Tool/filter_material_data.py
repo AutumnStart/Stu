@@ -5,8 +5,6 @@
 从form文件夹扫描最新的Excel文件，筛选"整体消耗"在1000-10000区间的数据
 将筛选结果保存到data文件夹的新Excel文件中
 
-作者: AI Assistant
-版本: v1.0
 """
 
 import pandas as pd

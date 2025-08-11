@@ -4,8 +4,6 @@
 整体消耗列分析工具
 以"整体消耗"列为锚点，分析Excel文件中的列结构和数据分布
 
-作者: AI Assistant
-版本: v1.0
 """
 
 import pandas as pd

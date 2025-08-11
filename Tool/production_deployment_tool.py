@@ -9,8 +9,6 @@ Production-Ready Material Prediction System
 2. 运行此脚本: python production_deployment_tool.py
 3. 查看预测结果和决策建议
 
-作者: MiniMax Agent
-版本: v1.0
 """
 
 import pandas as pd

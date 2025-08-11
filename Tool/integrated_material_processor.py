@@ -11,8 +11,6 @@ Integrated Material Processing Tool
 4. 自动启动浏览器下载视频和截图
 5. 最后一次性上传完整数据（包含附件）到飞书表格
 
-作者：MiniMax Agent
-版本：v1.0 - 集成版本
 """
 
 import pandas as pd
